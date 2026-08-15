@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chess Trainer</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>&#9822;</text></svg>">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#14110d">
+<link rel="stylesheet" href="./vendor/fonts/fonts.css">
+<link rel="stylesheet" href="./css/style.css">
+<script src="./js/theme.js"></script>
+</head>
+<body>
+<header>
+  <a class="brand" href="./"><span class="mark">&#9822;</span> Chess Trainer</a>
+  <nav>
+    <a href="./" class="active">Dashboard</a>
+    <a href="./insights.html">Insights</a>
+    <a href="./train.html">Train</a>
+  </nav>
+  <div class="right">
+    <button id="theme-btn" class="btn subtle" aria-label="Toggle theme"></button>
+    <a class="chip" href="https://lichess.org/@/Katutx0" target="_blank"><span class="dot"></span><span id="user">Katutx0</span></a>
+  </div>
+</header>
+<main>
+  <div class="hero">
+    <div>
+      <h1>Every game you lost<br>has a <em>lesson</em> in it.</h1>
+      <p id="tagline">Loading&hellip;</p>
+    </div>
+    <a class="btn gold" href="./train.html">Start training &rarr;</a>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="danger-zone" id="sync-zone" hidden>
+    <div class="dz-text">
+      <b>Sync across devices</b>
+      <span id="sync-note">Loading&hellip;</span>
+    </div>
+    <div class="dz-actions">
+      <button id="sync-now" class="btn">Sync now</button>
+      <button id="sync-setup" class="btn subtle">Set up&hellip;</button>
+    </div>
+    <form id="sync-form" class="dz-form" hidden>
+      <label>Gist id or URL
+        <input id="sync-gist" type="text" autocomplete="off" spellcheck="false"
+               placeholder="the secret gist holding your training state"></label>
+      <label>Access token
+        <input id="sync-token" type="password" autocomplete="off"
+               placeholder="classic GitHub token with the gist scope"></label>
+      <label>Name for this device
+        <input id="sync-label" type="text" autocomplete="off" placeholder="phone"></label>
+      <div class="dz-actions">
+        <button id="sync-save" class="btn gold" type="submit">Save and sync</button>
+        <button id="sync-forget" class="btn subtle" type="button">Forget on this device</button>
+      </div>
+      <p class="fineprint">The token stays in this browser and is never part of the
+        published build. A classic token with the <code>gist</code> scope can read
+        and write every gist on the account &mdash; GitHub has no narrower option.</p>
+    </form>
+  </div>
+
+  <div class="danger-zone" id="backup-zone" hidden>
+    <div class="dz-text">
+      <b>Backup training progress</b>
+      <span id="backup-note">This device holds the only copy of your review
+        schedule. Clearing browser data would erase it.</span>
+    </div>
+    <div class="dz-actions">
+      <button id="backup-export" class="btn">Download backup</button>
+      <button id="backup-import" class="btn subtle">Restore&hellip;</button>
+      <input id="backup-file" type="file" accept="application/json,.json" hidden>
+    </div>
+  </div>
+
+  <div class="danger-zone">
+    <div class="dz-text">
+      <b>Reset training history</b>
+      <span id="reset-note">Clears every attempt and review schedule. Your puzzles,
+        games and explanations are kept.</span>
+    </div>
+    <div class="dz-actions">
+      <button id="reset-btn" class="btn subtle danger">Reset training</button>
+      <button id="reset-yes" class="btn danger-solid" style="display:none">Yes, erase history</button>
+      <button id="reset-no" class="btn subtle" style="display:none">Cancel</button>
+    </div>
+  </div>
+</main>
+<script type="module" src="./js/dashboard.js?v=1"></script>
+<script type="module" src="./js/pwa.js?v=1"></script>
+</body>
+</html>

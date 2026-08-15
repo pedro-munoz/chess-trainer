@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Train — Chess Trainer</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>&#9822;</text></svg>">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#14110d">
+<link rel="stylesheet" href="./vendor/fonts/fonts.css">
+<link rel="stylesheet" href="./vendor/chessground/chessground.base.css">
+<link rel="stylesheet" href="./vendor/chessground/chessground.brown.css">
+<link rel="stylesheet" href="./vendor/chessground/chessground.cburnett.css">
+<link rel="stylesheet" href="./css/style.css">
+<script src="./js/theme.js"></script>
+</head>
+<body>
+<header>
+  <a class="brand" href="./"><span class="mark">&#9822;</span> Chess Trainer</a>
+  <nav>
+    <a href="./">Dashboard</a>
+    <a href="./insights.html">Insights</a>
+    <a href="./train.html" class="active">Train</a>
+  </nav>
+  <div class="right">
+    <button id="theme-btn" class="btn subtle" aria-label="Toggle theme"></button>
+    <a class="chip" href="https://lichess.org/@/Katutx0" target="_blank"><span class="dot"></span>Katutx0</a>
+  </div>
+</header>
+<main>
+  <div class="filters" id="filters">
+    <label><input type="checkbox" name="judgment" value="blunder" checked><span class="pill">blunders</span></label>
+    <label><input type="checkbox" name="judgment" value="mistake" checked><span class="pill">mistakes</span></label>
+    <label><input type="checkbox" name="judgment" value="inaccuracy"><span class="pill">inaccuracies</span></label>
+    <span class="sep"></span>
+    <label><input type="checkbox" name="phase" value="opening" checked><span class="pill">opening</span></label>
+    <label><input type="checkbox" name="phase" value="middlegame" checked><span class="pill">middlegame</span></label>
+    <label><input type="checkbox" name="phase" value="endgame" checked><span class="pill">endgame</span></label>
+    <span class="sep"></span>
+    <label><input type="radio" name="color" value="" checked><span class="pill">both colors</span></label>
+    <label><input type="radio" name="color" value="white"><span class="pill">white</span></label>
+    <label><input type="radio" name="color" value="black"><span class="pill">black</span></label>
+    <span id="focus-pill" class="focus-pill" style="display:none"></span>
+  </div>
+
+  <div class="trainer">
+    <!-- First in the source so the phone gets it at the top of the page, where
+         it is reachable without scrolling past the board and the feedback.
+         Grid placement puts it back beside the panel on a wide screen. -->
+    <div class="controls">
+      <button id="prev" class="btn icon" title="Previous puzzle (P)" aria-label="Previous puzzle">&#9664;</button>
+      <button id="next" class="btn gold">Next puzzle <kbd style="opacity:.6;font-family:inherit">N</kbd></button>
+      <button id="giveup" class="btn">Give up</button>
+      <button id="discard" class="btn subtle danger" title="Remove this puzzle forever">Discard</button>
+    </div>
+    <div class="board-col">
+      <div class="board-frame">
+        <div id="evalbar" class="eval-bar"><div id="evalbar-fill" class="eval-fill"></div></div>
+        <div id="board"></div>
+      </div>
+      <div id="board-nav" class="board-nav">
+        <span id="ex-eval" class="ex-eval">&hellip;</span>
+        <div class="nav-buttons">
+          <button id="ex-back" class="btn" title="Back (←)">&#9664;</button>
+          <button id="ex-fwd" class="btn" title="Forward (→)">&#9654;</button>
+          <button id="ex-reset" class="btn subtle">Reset</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="puzzle-card">
+        <div class="tags" id="tags"></div>
+        <p class="prompt" id="prompt">Loading puzzle&hellip;</p>
+        <div class="meta" id="meta"></div>
+      </div>
+      <div id="feedback" class="feedback">
+        <h3 id="fb-title"></h3>
+        <div id="fb-good" class="fb-section good" style="display:none">
+          <span class="fb-label">The idea</span><span id="fb-good-text"></span>
+        </div>
+        <div id="fb-bad" class="fb-section bad" style="display:none">
+          <span class="fb-label">In your game</span><span id="fb-bad-text"></span>
+        </div>
+        <div id="fb-line" class="line"></div>
+      </div>
+      <div class="session">
+        <div class="stat good"><b id="s-solved">0</b> solved</div>
+        <div class="stat bad"><b id="s-failed">0</b> failed</div>
+        <div class="stat streak"><b id="s-streak">0</b> streak</div>
+      </div>
+    </div>
+  </div>
+</main>
+<script type="module" src="./js/train.js?v=23"></script>
+<script type="module" src="./js/pwa.js?v=1"></script>
+</body>
+</html>
