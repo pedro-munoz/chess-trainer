@@ -44,6 +44,14 @@
   </div>
 
   <div class="trainer">
+    <!-- First in the source so the phone gets it at the top of the page, where
+         it is reachable without scrolling past the board and the feedback.
+         Grid placement puts it back beside the panel on a wide screen. -->
+    <div class="controls">
+      <button id="next" class="btn gold">Next puzzle <kbd style="opacity:.6;font-family:inherit">N</kbd></button>
+      <button id="giveup" class="btn">Give up</button>
+      <button id="discard" class="btn subtle danger" title="Remove this puzzle forever">Discard</button>
+    </div>
     <div class="board-col">
       <div class="board-frame">
         <div id="evalbar" class="eval-bar"><div id="evalbar-fill" class="eval-fill"></div></div>
@@ -74,11 +82,6 @@
         </div>
         <div id="fb-line" class="line"></div>
       </div>
-      <div class="controls">
-        <button id="next" class="btn gold">Next puzzle <kbd style="opacity:.6;font-family:inherit">N</kbd></button>
-        <button id="giveup" class="btn">Give up</button>
-        <button id="discard" class="btn subtle danger" title="Remove this puzzle forever">Discard</button>
-      </div>
       <div class="session">
         <div class="stat good"><b id="s-solved">0</b> solved</div>
         <div class="stat bad"><b id="s-failed">0</b> failed</div>
@@ -87,7 +90,7 @@
     </div>
   </div>
 </main>
-<script type="module" src="./js/train.js?v=21"></script>
+<script type="module" src="./js/train.js?v=22"></script>
 <script type="module" src="./js/pwa.js?v=1"></script>
 </body>
 </html>
