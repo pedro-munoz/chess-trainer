@@ -90,11 +90,23 @@ Run everything from the project root with `./.venv/Scripts/python.exe`.
 
 ## Daily routine (Pedro plays daily)
 
+**Bringing in new games is one pipeline, and every step is mandatory:**
+
 ```
-./.venv/Scripts/python.exe -m chess_trainer sync      # fetch only NEW games (incremental)
-./.venv/Scripts/python.exe -m chess_trainer analyze   # analyze pending games -> new puzzles
-./.venv/Scripts/python.exe -m scripts.deploy_pages    # publish to the phone
+./.venv/Scripts/python.exe -m chess_trainer sync      # 1. download only NEW games (incremental)
+./.venv/Scripts/python.exe -m chess_trainer analyze   # 2. analyze pending games -> new puzzles
+./.venv/Scripts/python.exe -m scripts.export_explain_batches   # 3. explain (see below)
+   ... fan out subagents, then:
+./.venv/Scripts/python.exe -m scripts.import_claude_explanations
+./.venv/Scripts/python.exe -m scripts.deploy_pages    # 4. upload to the phone
 ```
+
+**Never stop after `analyze`.** New puzzles land with `explanation_source='rules'`,
+and shipping those means Pedro trains on blunt rule-generated text while every
+older puzzle has proper coaching. Step 3 is not optional polish and is not
+something to offer as a follow-up — it is part of importing puzzles. Check
+`SELECT COUNT(*) FROM mistakes WHERE discarded_at IS NULL AND
+explanation_source='rules'` before deploying; it should be 0.
 
 `deploy_pages` runs the accept-set precompute, builds `dist/` and force-pushes it
 to `gh-pages`. `python -m chess_trainer serve` is still the way to work on the
