@@ -208,6 +208,7 @@ def next_puzzle(judgments_filter: str | None = None, color: str | None = None,
     ply = row["ply"]
     return {"puzzle": {
         "id": row["id"],
+        "pid": f"{row['game_id']}:{ply}",
         "fen": row["fen"],
         "color": row["color"],
         "played_san": row["played_san"],
@@ -230,8 +231,28 @@ def next_puzzle(judgments_filter: str | None = None, color: str | None = None,
     }}
 
 
+def _resolve_id(conn, mistake_id: int | None, pid: str | None) -> int:
+    """Accept either the autoincrement id or the stable "<game_id>:<ply>" pid.
+
+    mistakes.id is rebuilt by re-analysis, so anything that has to survive a
+    rebuild (the static build's local training state) keys off pid instead.
+    """
+    if mistake_id is not None:
+        return mistake_id
+    if not pid or ":" not in pid:
+        raise HTTPException(400, "mistake_id or pid required")
+    game_id, _, ply = pid.rpartition(":")
+    row = conn.execute(
+        "SELECT id FROM mistakes WHERE game_id = ? AND ply = ?", (game_id, ply)
+    ).fetchone()
+    if row is None:
+        raise HTTPException(404, "unknown puzzle")
+    return row["id"]
+
+
 class Attempt(BaseModel):
-    mistake_id: int
+    mistake_id: int | None = None
+    pid: str | None = None  # stable "<game_id>:<ply>" alternative to mistake_id
     move_uci: str | None = None  # None = gave up
     took_ms: int | None = None
     retry: bool = False  # later tries after a fail: logged, but no SRS update
@@ -240,7 +261,8 @@ class Attempt(BaseModel):
 @app.post("/api/attempt")
 def attempt(a: Attempt):
     conn = _conn()
-    row = conn.execute("SELECT * FROM mistakes WHERE id = ?", (a.mistake_id,)).fetchone()
+    mistake_id = _resolve_id(conn, a.mistake_id, a.pid)
+    row = conn.execute("SELECT * FROM mistakes WHERE id = ?", (mistake_id,)).fetchone()
     if row is None:
         raise HTTPException(404, "unknown puzzle")
 
@@ -277,10 +299,10 @@ def attempt(a: Attempt):
     conn.execute(
         "INSERT INTO attempts (mistake_id, attempted_at, move_uci, correct, took_ms) "
         "VALUES (?, ?, ?, ?, ?)",
-        (a.mistake_id, now, a.move_uci, int(correct), a.took_ms),
+        (mistake_id, now, a.move_uci, int(correct), a.took_ms),
     )
     # The first try decides the spaced-repetition outcome; retries are practice.
-    sched = None if a.retry else srs.review(conn, a.mistake_id, correct, now)
+    sched = None if a.retry else srs.review(conn, mistake_id, correct, now)
     conn.commit()
     ev_best = conn.execute(
         "SELECT score_cp, score_mate FROM evals WHERE game_id = ? AND ply = ?",
@@ -364,7 +386,8 @@ def eval_position(req: EvalReq):
 
 
 class Discard(BaseModel):
-    mistake_id: int
+    mistake_id: int | None = None
+    pid: str | None = None
 
 
 @app.post("/api/discard")
@@ -372,7 +395,7 @@ def discard(d: Discard):
     conn = _conn()
     cur = conn.execute(
         "UPDATE mistakes SET discarded_at = ? WHERE id = ? AND discarded_at IS NULL",
-        (db.now_s(), d.mistake_id),
+        (db.now_s(), _resolve_id(conn, d.mistake_id, d.pid)),
     )
     conn.commit()
     if cur.rowcount == 0:

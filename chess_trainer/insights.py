@@ -212,7 +212,9 @@ def _train_url(**params) -> str:
     q = {k: v for k, v in params.items() if v}
     q["judgments"] = ",".join(DRILL_JUDGMENTS)
     q["focus"] = 1
-    return "/train.html?" + urlencode(q)
+    # Relative on purpose: identical here, and required by the static build,
+    # which is served from a GitHub Pages subpath (/chess-trainer/).
+    return "train.html?" + urlencode(q)
 
 
 def _available(conn, *, phases: str | None = None, color: str | None = None,
@@ -273,7 +275,14 @@ def _signal(dimension: str, key: str, bucket: _Bucket, overall: _Bucket,
 def _load_report() -> dict | None:
     try:
         with open(REPORT_PATH, encoding="utf-8") as fh:
-            return json.load(fh)
+            report = json.load(fh)
+        # Reports are hand-authored and historically used "/train.html?...".
+        # Normalize to relative so the static build works from a subpath.
+        for verdict in report.get("verdicts") or []:
+            training = verdict.get("training")
+            if training and isinstance(training.get("url"), str):
+                training["url"] = training["url"].lstrip("/")
+        return report
     except (OSError, ValueError):
         return None
 
