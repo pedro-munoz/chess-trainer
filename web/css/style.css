@@ -582,3 +582,78 @@ a.train-link:hover { text-decoration: underline; }
   color: #fff;
 }
 .btn.danger-solid:hover { filter: brightness(1.08); background: var(--blunder); }
+
+/* ---------- service-worker update prompt ---------- */
+.sw-toast {
+  position: fixed;
+  left: 50%; bottom: 1rem;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex; align-items: center; gap: 0.9rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.7rem 0.7rem 0.7rem 1.1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--bg-raised);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  font-size: 0.9rem;
+  animation: rise 0.25s ease;
+}
+
+/* ---------- phone ----------
+
+   The desktop header is a single flex row (brand | nav | theme + user chip)
+   that needs ~670px; below that it silently overflowed the viewport. On a
+   phone the nav becomes the header's second line, and the chip — which only
+   repeats a username shown on the dashboard — goes away entirely. */
+@media (max-width: 720px) {
+  header {
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    padding: 0.7rem 1rem;
+  }
+  header nav { order: 3; width: 100%; justify-content: space-between; }
+  header nav a { flex: 1; text-align: center; padding: 0.42rem 0.5rem; }
+  header .right { margin-left: auto; }
+  header .right .chip { display: none; }
+  .brand { font-size: 1rem; }
+  .brand .mark { width: 30px; height: 30px; font-size: 1.2rem; }
+
+  main { margin: 1.2rem auto 3rem; padding: 0 1rem; }
+  .hero h1 { font-size: 1.6rem; }
+  .hero p { font-size: 0.92rem; }
+  h2.section { margin: 1.8rem 0 0.8rem; }
+
+  /* Filter pills: one horizontally scrollable row rather than four wrapped
+     lines pushing the board below the fold. */
+  .filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -1rem 1rem;
+    padding: 0 1rem 0.3rem;
+  }
+  .filters::-webkit-scrollbar { display: none; }
+  .filters label, .filters .sep, .filters .focus-pill { flex: 0 0 auto; }
+
+  .trainer { gap: 1.2rem; }
+  .board-frame { padding: 6px; gap: 6px; }
+  .board-nav { margin-top: 0.6rem; }
+
+  .controls { display: grid; grid-template-columns: 1fr 1fr; }
+  .controls .btn { justify-content: center; }
+  .controls .btn.gold { grid-column: 1 / -1; }
+  .session .stat { padding: 0.8rem 0.5rem; text-align: center; }
+
+  .danger-zone { padding: 1rem; }
+  .danger-zone .dz-actions { width: 100%; }
+  .danger-zone .dz-actions .btn { flex: 1; justify-content: center; }
+
+  /* Wide tables scroll inside their own box instead of the page. */
+  .matrix { display: block; overflow-x: auto; white-space: nowrap; }
+}
+
+/* A backup that is getting old is the one thing on the dashboard worth nagging
+   about: this device holds the only copy of the schedule. */
+#backup-zone { border-left-color: var(--line-strong); }
+#backup-zone.stale { border-left-color: var(--gold); }

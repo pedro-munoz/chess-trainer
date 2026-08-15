@@ -1,0 +1,16 @@
+{
+  "name": "Chess Trainer",
+  "short_name": "Trainer",
+  "description": "Learn from your own mistakes: puzzles from your Lichess games, with spaced repetition.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#14110d",
+  "theme_color": "#14110d",
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "./icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
