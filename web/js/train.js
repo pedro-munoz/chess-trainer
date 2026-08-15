@@ -29,7 +29,7 @@ function fitBoard() {
   // Rank/file labels are sized off the square, not the page: fixed type is lost
   // on a big board and crowds a small one. Kept deliberately small and capped,
   // the way lichess's are — they are a reference, not a feature.
-  const coord = Math.min(14, Math.max(9, Math.round((size / 8) * 0.16)));
+  const coord = Math.min(12, Math.max(8, Math.round((size / 8) * 0.14)));
   b.style.setProperty('--coord-size', coord + 'px');
   if (cg) cg.redrawAll();
 }
@@ -163,7 +163,10 @@ async function loadPuzzle() {
   startedAt = Date.now();
 }
 
-function setPuzzleBoard() {
+const RETURN_MS = 260;   // how long the rejected piece takes to glide back
+const HOLD_MS = 420;     // how long it stays put first, so you see what you played
+
+function setPuzzleBoard({ glide = false } = {}) {
   const config = {
     fen: puzzle.fen,
     orientation: puzzle.color,
@@ -171,6 +174,7 @@ function setPuzzleBoard() {
     check: false,
     lastMove: undefined,
     viewOnly: false,
+    animation: { enabled: true, duration: glide ? RETURN_MS : 0 },
     movable: {
       free: false,
       color: puzzle.color,
@@ -185,7 +189,11 @@ function setPuzzleBoard() {
     dest: puzzle.played_uci.slice(2, 4),
     brush: 'red',
   }]);
-  cg.redrawAll(); // this chessground build doesn't repaint shapes on its own
+  // This chessground build doesn't repaint shapes on its own, but redrawAll()
+  // is a synchronous full repaint — calling it now would cancel the animation
+  // we just asked for, which is what made the piece snap back instantly.
+  if (glide) setTimeout(() => cg.redrawAll(), RETURN_MS);
+  else cg.redrawAll();
 }
 
 function isPromotion(orig, dest) {
@@ -238,7 +246,11 @@ function retryFeedback(r) {
   el('fb-good').style.display = 'none';
   el('fb-bad').style.display = 'none';
   el('fb-line').style.display = 'none';
-  setPuzzleBoard(); // back to the position for another go
+  // Leave the rejected move on the board for a beat, then glide the piece home.
+  // Yanking it back the instant it lands reads as the board refusing the input
+  // rather than as "that move was wrong".
+  setTimeout(() => { if (puzzle && !solvedOrRevealed) setPuzzleBoard({ glide: true }); },
+             HOLD_MS);
 }
 
 /* Shown only once the answer is out: "blunder" hints at how much is at stake and

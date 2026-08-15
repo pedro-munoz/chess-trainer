@@ -188,6 +188,15 @@ only trust |z| ≥ 2, and keep training URLs in the **relative** `train.html?...
 judgments=blunder,mistake&focus=1` form — no leading slash, which would break on
 the Pages subpath (`_load_report` strips one if present, but write them right).
 Get `available` from `insights._available`.
+
+**"opening" is two different things — do not mix them.** `phases=opening` is the
+game phase (~38 puzzles); `opening=Caro-Kann Defense` is an opening *family* and
+matches every mistake in those games, at any phase. A verdict about a phase must
+use `phases=`; a verdict about a repertoire uses `opening=`. Getting this wrong
+is not visible in the UI — the link renders as "train (139)" either way — so
+`export_static.check_report_links` warns when a headline says "phase" and the URL
+does not filter by one. Phase, phase×color and endgame links are pure by
+construction; opening-family links deliberately span all phases.
 **Voice**: a grandmaster coaching his pupil — direct, personal, prescriptive;
 every verdict aims at fixing a weakness or reinforcing a strength (strength cards
 get training links too). Endgame claims use types, never endgame-by-color.

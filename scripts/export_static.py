@@ -112,6 +112,27 @@ def build_games(conn) -> dict:
     }
 
 
+def check_report_links(stats: dict) -> list[str]:
+    """Catch coach-report verdicts whose training link contradicts the claim.
+
+    "opening" means two different things here — the game phase and the opening
+    family — and a verdict headlined "Opening play is your strongest phase"
+    once linked to `opening=Caro-Kann Defense`, i.e. whole games in one
+    repertoire, 92% of which were not the opening phase.
+    """
+    warnings = []
+    for verdict in (stats.get("report") or {}).get("verdicts", []) or []:
+        training = verdict.get("training")
+        if not training:
+            continue
+        url, headline = training.get("url", ""), verdict.get("headline", "")
+        if "phase" in headline.lower() and "phases=" not in url and "endgame=" not in url:
+            warnings.append(
+                f"verdict {headline!r} claims a game phase but its link "
+                f"({url}) does not filter by one")
+    return warnings
+
+
 def write_json(path: Path, payload) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
@@ -190,6 +211,9 @@ def main() -> None:
     stats = insights.compute_insights(conn, force=True)
     if args.no_report:
         stats = {**stats, "report": None, "report_stale": False}
+
+    for warning in check_report_links(stats):
+        print(f"  ! {warning}")
 
     games_row = conn.execute(
         "SELECT COUNT(*) AS total, COUNT(analyzed_at) AS analyzed FROM games").fetchone()
