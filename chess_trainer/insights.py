@@ -381,7 +381,7 @@ def compute_insights(conn: sqlite3.Connection, force: bool = False) -> dict:
         n_games = len(games_by_opening.get((family, color), []))
         if b.n_moves >= MIN_MOVES["opening"] and n_games >= MIN_GAMES_OPENING:
             s = _signal("opening", f"{family}|{color}", b, overall,
-                        {"label": f"Drill {family} mistakes",
+                        {"label": f"Drill mistakes from your {family} games",
                          "url": _train_url(opening=family, color=color),
                          "available": _available(conn, opening=family, color=color)})
             if s:
@@ -434,7 +434,9 @@ def compute_insights(conn: sqlite3.Connection, force: bool = False) -> dict:
         openings.append({
             "family": family, "color": color, "games": len(rows),
             "score_pct": score_pct(rows), **b.stats(),
-            "training": {"label": f"Drill {family} mistakes",
+            # "from your X games", not "X mistakes": this spans the whole game,
+            # and calling it an opening drill is what made it read as the phase.
+            "training": {"label": f"Drill mistakes from your {family} games",
                          "url": _train_url(opening=family, color=color),
                          "available": _available(conn, opening=family, color=color)},
         })
