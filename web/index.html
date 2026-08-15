@@ -35,6 +35,19 @@
 
   <div class="cards" id="cards"></div>
 
+  <div class="danger-zone" id="backup-zone" hidden>
+    <div class="dz-text">
+      <b>Backup training progress</b>
+      <span id="backup-note">This device holds the only copy of your review
+        schedule. Clearing browser data would erase it.</span>
+    </div>
+    <div class="dz-actions">
+      <button id="backup-export" class="btn">Download backup</button>
+      <button id="backup-import" class="btn subtle">Restore&hellip;</button>
+      <input id="backup-file" type="file" accept="application/json,.json" hidden>
+    </div>
+  </div>
+
   <div class="danger-zone">
     <div class="dz-text">
       <b>Reset training history</b>
@@ -48,77 +61,6 @@
     </div>
   </div>
 </main>
-<script>
-async function load() {
-  const s = await (await fetch('/api/stats')).json();
-  document.getElementById('user').textContent = s.username;
-  const m = s.mistakes;
-  const bank = (m.blunder || 0) + (m.mistake || 0) + (m.inaccuracy || 0);
-  const pct = s.games.total ? Math.round(100 * s.games.analyzed / s.games.total) : 0;
-  document.getElementById('tagline').textContent =
-    `${s.games.total} games studied · ${bank} puzzles extracted · ${s.due} ready to train`;
-
-  document.getElementById('cards').innerHTML = `
-    <div class="card">
-      <div class="label">Games analyzed</div>
-      <div class="big">${s.games.analyzed}<span class="frac"> / ${s.games.total}</span></div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
-      <div class="detail">${s.games.pending ? s.games.pending + ' pending — puzzles appear as analysis completes' : 'all games analyzed'}</div>
-    </div>
-    <div class="card">
-      <div class="label">Puzzle bank</div>
-      <div class="big">${bank}</div>
-      <div class="detail">
-        <span class="badge blunder">${m.blunder || 0} blunders</span>
-        <span class="badge mistake">${m.mistake || 0} mistakes</span>
-        <span class="badge inaccuracy">${m.inaccuracy || 0} inaccuracies</span>
-      </div>
-    </div>
-    <div class="card">
-      <div class="label">Due for training</div>
-      <div class="big">${s.due}</div>
-      <div class="detail"><b>${s.new}</b>&nbsp;never seen yet</div>
-    </div>
-    <div class="card">
-      <div class="label">Attempts so far</div>
-      <div class="big">${s.attempts}</div>
-      <div class="detail">failed puzzles return within minutes</div>
-    </div>`;
-}
-
-/* Reset training — two-step, because it cannot be undone. */
-const el = (id) => document.getElementById(id);
-function showConfirm(on) {
-  el('reset-btn').style.display = on ? 'none' : '';
-  el('reset-yes').style.display = on ? '' : 'none';
-  el('reset-no').style.display = on ? '' : 'none';
-  el('reset-note').textContent = on
-    ? 'This deletes every attempt and review schedule permanently. Puzzles are kept.'
-    : 'Clears every attempt and review schedule. Your puzzles, games and explanations are kept.';
-}
-el('reset-btn').addEventListener('click', () => showConfirm(true));
-el('reset-no').addEventListener('click', () => showConfirm(false));
-el('reset-yes').addEventListener('click', async () => {
-  el('reset-yes').disabled = true;
-  const resp = await fetch('/api/reset-training', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ confirm: true }),
-  });
-  el('reset-yes').disabled = false;
-  showConfirm(false);
-  if (resp.ok) {
-    const r = await resp.json();
-    el('reset-note').textContent =
-      `Training history cleared — ${r.attempts_deleted} attempt(s) removed. Every puzzle is due again.`;
-  } else {
-    el('reset-note').textContent = 'Reset failed — is the server running?';
-  }
-  load();
-});
-
-load();
-setInterval(load, 15000);
-</script>
+<script type="module" src="./js/dashboard.js?v=1"></script>
 </body>
 </html>

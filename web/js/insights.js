@@ -1,5 +1,7 @@
 /* Insights page: strengths/weaknesses stats + Claude-authored coach report. */
 
+import * as api from './api.js';
+
 const el = (id) => document.getElementById(id);
 const fmtDate = (ms) => new Date(ms).toISOString().slice(0, 10);
 
@@ -234,7 +236,7 @@ function renderSignals(data) {
 }
 
 async function load() {
-  const data = await (await fetch('/api/insights')).json();
+  const data = await api.getInsights();
   const [from, to] = data.sample.date_range;
   el('tagline').textContent =
     `${data.sample.games} games · ${data.sample.own_moves.toLocaleString()} of your moves analyzed · `

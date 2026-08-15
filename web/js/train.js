@@ -1,6 +1,7 @@
 /* "Learn from your mistakes" trainer. */
 
 import { Chessground as CG } from '../vendor/chessground/chessground.min.js';
+import * as api from './api.js';
 
 let cg = null;
 let puzzle = null;
@@ -124,12 +125,12 @@ async function loadPuzzle() {
   el('discard').disabled = false;
 
   const { kinds, phases, color } = filters();
-  const params = new URLSearchParams();
-  if (kinds.length) params.set('judgments_filter', kinds.join(','));
-  if (phases.length && phases.length < 3) params.set('phases', phases.join(','));
-  if (color) params.set('color', color);
-  Object.entries(extra).forEach(([k, v]) => params.set(k, v));
-  const data = await (await fetch('/api/next?' + params)).json();
+  const params = {};
+  if (kinds.length) params.judgments_filter = kinds.join(',');
+  if (phases.length && phases.length < 3) params.phases = phases.join(',');
+  if (color) params.color = color;
+  Object.assign(params, extra);
+  const data = await api.getNext(params);
 
   if (!data.puzzle) {
     puzzle = null;
@@ -197,18 +198,13 @@ async function onMove(orig, dest) {
 }
 
 async function submit(uci) {
-  const resp = await fetch('/api/attempt', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      mistake_id: puzzle.id,
-      move_uci: uci,
-      took_ms: Date.now() - startedAt,
-      retry: firstTryDone,
-    }),
+  const r = await api.postAttempt({
+    pid: puzzle.pid,
+    move_uci: uci,
+    took_ms: Date.now() - startedAt,
+    retry: firstTryDone,
   });
-  if (!resp.ok) return;
-  const r = await resp.json();
+  if (!r) return;   // illegal move: leave the board as it is
 
   if (!firstTryDone) {
     firstTryDone = true;
@@ -281,7 +277,7 @@ function reveal(r, solvedUci) {
   el('fb-line').style.display = r.pv_san ? 'block' : 'none';
   el('fb-line').textContent = trimLine(r.pv_san);
 
-  enterExplore(solvedUci);
+  enterExplore(solvedUci, r);
 }
 
 /* ---------- explore mode (after reveal) ---------- */
@@ -297,13 +293,7 @@ function fmtEval(line) {
 
 async function evalRequest(body) {
   el('ex-eval').textContent = '…';
-  const resp = await fetch('/api/eval', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!resp.ok) return null;
-  return resp.json();
+  return api.postEval(body);
 }
 
 function puzzleArrows() {
@@ -366,13 +356,43 @@ function renderExplore(data, { arrows = null } = {}) {
   el('ex-fwd').disabled = histIdx >= history.length - 1;
 }
 
-async function enterExplore(solvedUci = null) {
+/* Reveal without touching the engine: the answer arrow and the position's
+   evaluation are both already known. On a phone a search costs ~0.5-1s and real
+   battery, so it waits until there is actually something to explore. */
+function renderBakedPuzzlePos(r) {
+  const bar = r && r.win_best != null
+    ? (puzzle.color === 'white' ? r.win_best : 100 - r.win_best)
+    : 50;
+  el('ex-eval').textContent = (r && r.eval_best) || '—';
+  setEvalBar(bar);
+  cg.set({
+    fen: puzzle.fen,
+    turnColor: puzzle.color,
+    check: false,
+    movable: {
+      free: false,
+      color: puzzle.color,
+      dests: new Map(Object.entries(puzzle.dests)),
+      events: { after: onMove },
+    },
+  });
+  cg.setAutoShapes(puzzleArrows());
+  cg.redrawAll();
+  el('ex-back').disabled = true;
+  el('ex-fwd').disabled = histIdx >= history.length - 1;
+}
+
+async function enterExplore(solvedUci = null, revealed = null) {
   exploring = true;
   el('board-nav').classList.add('active');
   // history[0] is always the puzzle position (rendered with the arrows);
   // after a solve we continue from the position AFTER the winning move.
-  history = [{ fen: puzzle.fen, data: null, isPuzzlePos: true }];
+  history = [{ fen: puzzle.fen, data: null, isPuzzlePos: true, baked: revealed }];
   histIdx = 0;
+  if (api.deferEngine) {
+    renderBakedPuzzlePos(revealed);
+    return;
+  }
   if (solvedUci) {
     const data = await evalRequest({ fen: puzzle.fen, move_uci: solvedUci });
     if (data) {
@@ -400,6 +420,9 @@ async function navTo(idx, force = false) {
   histIdx = idx;
   const entry = history[idx];
   if (!entry.data) {
+    // Back at the puzzle position with the engine deferred: nothing to search,
+    // the stored evaluation already describes it.
+    if (api.deferEngine && entry.isPuzzlePos) { renderBakedPuzzlePos(entry.baked); return; }
     entry.data = await evalRequest({ fen: entry.fen });
     if (!entry.data) return;
   }
@@ -418,11 +441,7 @@ el('giveup').addEventListener('click', () => {
 el('next').addEventListener('click', loadPuzzle);
 el('discard').addEventListener('click', async () => {
   if (!puzzle) return;
-  await fetch('/api/discard', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mistake_id: puzzle.id }),
-  });
+  await api.postDiscard(puzzle.pid);
   loadPuzzle();
 });
 document.addEventListener('keydown', (e) => {
