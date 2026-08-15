@@ -295,11 +295,29 @@ export/explain/import cycle picks them up again).
     `coords.files { left: 24px }` — offsets that assume lichess's own board
     margins — plus a fixed `font-size: 9px` and a `translateY(39%)` nudge. Used
     as shipped, every label sits up and to the right of the square it names, at
-    a size that ignores the board. `style.css` pins both strips to the board and
-    lets flex centre each label in its rank/file; `fitBoard()` sets
-    `--coord-size` from the square size. Verified aligned to ±2px at 320px and
-    544px boards, both orientations. **Do not "fix" this by editing
-    `web/vendor/chessground/` — re-vendoring would silently undo it.**
+    a size that ignores the board. `style.css` rebuilds them lichess-style:
+    ranks in the top-right of the right-hand column, files in the bottom-left of
+    the bottom row, sized from the square by `fitBoard()` via `--coord-size`.
+    Three traps in that rebuild, all of which cost a round trip:
+    - **`#board` *is* the `.cg-wrap` element.** Chessground reuses the mount node
+      rather than nesting inside it, so `#board .cg-wrap …` matches nothing;
+      write `#board coords …`.
+    - **Pieces are `z-index: 2`, coords default to `auto`** — a piece on an edge
+      square simply painted over its label. Coords are `z-index: 3` now.
+    - **The brown theme colours coords itself**, keyed off each strip's sibling
+      index (`.cg-wrap coords.files:nth-child(even) coord:nth-child(even)`),
+      which outweighs a plain `.cg-wrap coords.files coord:…`. Hence the `#board`
+      prefix. Contrast follows the square: the right column starts light at
+      rank 1 while the bottom row starts dark at a1, so ranks and files run in
+      opposite phase, and `.black` inverts both.
+
+    Verified against the true square centres and colours in both orientations,
+    and the occlusion fix was tested with a control (reverting the z-index puts
+    `piece` back on top). Note both coords and pieces set `pointer-events: none`,
+    so `elementFromPoint` returns `cg-board` for either and cannot tell them
+    apart — force them hittable first or the test proves nothing.
+    **Do not "fix" any of this by editing `web/vendor/chessground/` —
+    re-vendoring would silently undo it.**
 
 ## Conventions
 

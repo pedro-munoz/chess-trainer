@@ -685,32 +685,70 @@ a.train-link:hover { text-decoration: underline; }
 #backup-zone { border-left-color: var(--line-strong); }
 #backup-zone.stale { border-left-color: var(--gold); }
 
-/* ---------- board coordinates ----------
+/* ---------- board coordinates, Lichess-style ----------
 
    Chessground ships hardcoded offsets tuned for lichess's own board margins
    (`coords.ranks { top: -20px }`, `coords.files { left: 24px }`), so used
-   as-is every label sits up and to the right of the square it names, and the
-   fixed 9px type does not track the board. Pin both strips to the board and
-   let flex place each label in its own rank/file; --coord-size is set from
-   fitBoard() so the type scales with the squares. */
+   as-is every label sits up and to the right of the square it names, at a
+   fixed 9px that ignores the board. Rebuilt here the way lichess does it:
+
+   - ranks tucked into the top-right corner of the right-hand column,
+     files into the bottom-left corner of the bottom row
+   - painted above the pieces (chessground gives pieces z-index 2, so at the
+     default `auto` a rook simply swallowed the label under it)
+   - each label takes the colour of the *other* square shade, so it reads on
+     whichever square it lands on
+   - small, and sized from the square by fitBoard() rather than fixed
+
+   Square shades come from chessground.brown.css. */
+.cg-wrap {
+  --sq-light: #f0d9b5;
+  --sq-dark: #b58863;
+}
 .cg-wrap coords {
   font-family: inherit;
   font-size: var(--coord-size, 10px);
-  font-weight: 600;
-  opacity: 0.62;
+  font-weight: 700;
+  opacity: 1;
+  z-index: 3;                      /* pieces are z-index 2 */
 }
+
+/* Right-hand column, label in the top-right of each square. */
 .cg-wrap coords.ranks {
-  top: 0; left: 0; right: auto; bottom: auto;
+  top: 0; right: 0; left: auto; bottom: auto;
   width: 100%; height: 100%;
-  align-items: flex-start;
+  align-items: flex-end;
 }
 .cg-wrap coords.ranks coord {
-  transform: none;               /* stock translateY(39%) is part of the fudge */
-  display: flex; align-items: center;
-  padding-left: 0.3em;
+  transform: none;                 /* stock translateY(39%) is part of the fudge */
+  display: flex; align-items: flex-start;
+  padding: 0.1em 0.28em 0 0;
 }
+
+/* Bottom row, label in the bottom-left of each square. */
 .cg-wrap coords.files {
   left: 0; right: auto; bottom: 0; top: auto;
   width: 100%; height: auto;
-  padding-bottom: 0.15em;
+  align-items: flex-end;
+  text-align: left;
 }
+.cg-wrap coords.files coord { padding: 0 0 0.06em 0.28em; }
+
+/* Contrast. The right column starts light at rank 1 (h1) while the bottom row
+   starts dark (a1), so ranks and files run in opposite phase; flipping the
+   board swaps which file/rank each strip sits on, so `.black` inverts both.
+
+   Scoped through #board deliberately. The brown theme ships its own alternating
+   colours keyed off each strip's sibling index
+   (`.cg-wrap coords.files:nth-child(even) coord:nth-child(even)`), which
+   outweighs a plain `.cg-wrap coords.files coord:nth-child(even)` — that is why
+   the ranks obeyed and the files did not. The id wins outright. */
+#board coords.ranks coord:nth-child(odd),
+#board coords.ranks.black coord:nth-child(even),
+#board coords.files coord:nth-child(even),
+#board coords.files.black coord:nth-child(odd) { color: var(--sq-dark); }
+
+#board coords.ranks coord:nth-child(even),
+#board coords.ranks.black coord:nth-child(odd),
+#board coords.files coord:nth-child(odd),
+#board coords.files.black coord:nth-child(even) { color: var(--sq-light); }

@@ -26,9 +26,11 @@ function fitBoard() {
   b.style.width = size + 'px';
   b.style.height = size + 'px';
   b.style.aspectRatio = 'auto';
-  // Rank/file labels are sized off the square, not the page: 9px fixed type is
-  // lost on a big board and crowds a small one. Inherited by .cg-wrap coords.
-  b.style.setProperty('--coord-size', Math.max(8, Math.round(size / 8 * 0.28)) + 'px');
+  // Rank/file labels are sized off the square, not the page: fixed type is lost
+  // on a big board and crowds a small one. Kept deliberately small and capped,
+  // the way lichess's are — they are a reference, not a feature.
+  const coord = Math.min(14, Math.max(9, Math.round((size / 8) * 0.16)));
+  b.style.setProperty('--coord-size', coord + 'px');
   if (cg) cg.redrawAll();
 }
 new ResizeObserver(fitBoard).observe(frame);
