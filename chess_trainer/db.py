@@ -87,6 +87,22 @@ CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT
 );
+
+-- Moves the trainer accepts as alternatives to the engine's first choice,
+-- precomputed so the static build can judge answers without an engine.
+-- Keyed by (game_id, ply) rather than mistakes.id: re-analysis rebuilds the
+-- mistakes table, and this cache must survive that.
+CREATE TABLE IF NOT EXISTS accept_sets (
+    game_id     TEXT NOT NULL,
+    ply         INTEGER NOT NULL,
+    fen         TEXT NOT NULL,               -- guards against a rebuilt puzzle at the same key
+    nodes       INTEGER NOT NULL,
+    multipv     INTEGER NOT NULL,
+    moves_json  TEXT NOT NULL,               -- [[uci, cp, mate], ...] mover-POV, best first
+    complete    INTEGER NOT NULL,            -- 1 = list provably covers every acceptable move
+    computed_at INTEGER NOT NULL,
+    PRIMARY KEY (game_id, ply)
+);
 """
 
 

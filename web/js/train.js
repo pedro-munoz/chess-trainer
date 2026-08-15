@@ -1,6 +1,6 @@
 /* "Learn from your mistakes" trainer. */
 
-import { Chessground as CG } from 'https://cdn.jsdelivr.net/npm/chessground@9.1.1/dist/chessground.min.js';
+import { Chessground as CG } from '../vendor/chessground/chessground.min.js';
 
 let cg = null;
 let puzzle = null;
