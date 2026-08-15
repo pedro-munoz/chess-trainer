@@ -26,6 +26,9 @@ function fitBoard() {
   b.style.width = size + 'px';
   b.style.height = size + 'px';
   b.style.aspectRatio = 'auto';
+  // Rank/file labels are sized off the square, not the page: 9px fixed type is
+  // lost on a big board and crowds a small one. Inherited by .cg-wrap coords.
+  b.style.setProperty('--coord-size', Math.max(8, Math.round(size / 8 * 0.28)) + 'px');
   if (cg) cg.redrawAll();
 }
 new ResizeObserver(fitBoard).observe(frame);

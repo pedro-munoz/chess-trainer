@@ -290,6 +290,16 @@ export/explain/import cycle picks them up again).
     server deadlocks the instant the browser opens its second keep-alive connection.
 16. On Windows the stdlib reads MIME types from the registry, which has no `.wasm`
     entry — `serve_dist.py` sets `application/wasm` explicitly.
+17. **Chessground's stock coordinate CSS is misaligned outside lichess.**
+    `chessground.base.css` hardcodes `coords.ranks { top: -20px }` and
+    `coords.files { left: 24px }` — offsets that assume lichess's own board
+    margins — plus a fixed `font-size: 9px` and a `translateY(39%)` nudge. Used
+    as shipped, every label sits up and to the right of the square it names, at
+    a size that ignores the board. `style.css` pins both strips to the board and
+    lets flex centre each label in its rank/file; `fitBoard()` sets
+    `--coord-size` from the square size. Verified aligned to ±2px at 320px and
+    544px boards, both orientations. **Do not "fix" this by editing
+    `web/vendor/chessground/` — re-vendoring would silently undo it.**
 
 ## Conventions
 
