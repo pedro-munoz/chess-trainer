@@ -1,0 +1,30 @@
+# Chess trainer configuration
+
+[lichess]
+username = "Katutx0"
+
+[stockfish]
+path = "tools/stockfish/stockfish-windows-x86-64-avx2.exe"
+threads = 4
+hash_mb = 256
+
+[analysis]
+# Nodes searched per position. ~1M nodes gives quality comparable to
+# Lichess server analysis; lower it for faster (rougher) passes.
+nodes = 1_000_000
+# Which pending games to analyze first: "newest" or "oldest"
+order = "newest"
+
+[thresholds]
+# Judgment thresholds as win% drop (Lichess-style)
+inaccuracy = 10.0
+mistake = 20.0
+blunder = 30.0
+
+[trainer]
+# An alternative move is accepted if its win% is within this many points
+# of the engine best move's win%.
+tolerance_winpct = 5.0
+# Nodes for the live check of alternative moves in the trainer
+check_nodes = 400_000
+port = 8123

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chess Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,wght@0,500;0,600;1,500&display=swap">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>&#9822;</text></svg>">
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/theme.js"></script>
+</head>
+<body>
+<header>
+  <a class="brand" href="/"><span class="mark">&#9822;</span> Chess Trainer</a>
+  <nav>
+    <a href="/" class="active">Dashboard</a>
+    <a href="/insights.html">Insights</a>
+    <a href="/train.html">Train</a>
+  </nav>
+  <div class="right">
+    <button id="theme-btn" class="btn subtle" aria-label="Toggle theme"></button>
+    <a class="chip" href="https://lichess.org/@/Katutx0" target="_blank"><span class="dot"></span><span id="user">Katutx0</span></a>
+  </div>
+</header>
+<main>
+  <div class="hero">
+    <div>
+      <h1>Every game you lost<br>has a <em>lesson</em> in it.</h1>
+      <p id="tagline">Loading&hellip;</p>
+    </div>
+    <a class="btn gold" href="/train.html">Start training &rarr;</a>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="danger-zone">
+    <div class="dz-text">
+      <b>Reset training history</b>
+      <span id="reset-note">Clears every attempt and review schedule. Your puzzles,
+        games and explanations are kept.</span>
+    </div>
+    <div class="dz-actions">
+      <button id="reset-btn" class="btn subtle danger">Reset training</button>
+      <button id="reset-yes" class="btn danger-solid" style="display:none">Yes, erase history</button>
+      <button id="reset-no" class="btn subtle" style="display:none">Cancel</button>
+    </div>
+  </div>
+</main>
+<script>
+async function load() {
+  const s = await (await fetch('/api/stats')).json();
+  document.getElementById('user').textContent = s.username;
+  const m = s.mistakes;
+  const bank = (m.blunder || 0) + (m.mistake || 0) + (m.inaccuracy || 0);
+  const pct = s.games.total ? Math.round(100 * s.games.analyzed / s.games.total) : 0;
+  document.getElementById('tagline').textContent =
+    `${s.games.total} games studied · ${bank} puzzles extracted · ${s.due} ready to train`;
+
+  document.getElementById('cards').innerHTML = `
+    <div class="card">
+      <div class="label">Games analyzed</div>
+      <div class="big">${s.games.analyzed}<span class="frac"> / ${s.games.total}</span></div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="detail">${s.games.pending ? s.games.pending + ' pending — puzzles appear as analysis completes' : 'all games analyzed'}</div>
+    </div>
+    <div class="card">
+      <div class="label">Puzzle bank</div>
+      <div class="big">${bank}</div>
+      <div class="detail">
+        <span class="badge blunder">${m.blunder || 0} blunders</span>
+        <span class="badge mistake">${m.mistake || 0} mistakes</span>
+        <span class="badge inaccuracy">${m.inaccuracy || 0} inaccuracies</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="label">Due for training</div>
+      <div class="big">${s.due}</div>
+      <div class="detail"><b>${s.new}</b>&nbsp;never seen yet</div>
+    </div>
+    <div class="card">
+      <div class="label">Attempts so far</div>
+      <div class="big">${s.attempts}</div>
+      <div class="detail">failed puzzles return within minutes</div>
+    </div>`;
+}
+
+/* Reset training — two-step, because it cannot be undone. */
+const el = (id) => document.getElementById(id);
+function showConfirm(on) {
+  el('reset-btn').style.display = on ? 'none' : '';
+  el('reset-yes').style.display = on ? '' : 'none';
+  el('reset-no').style.display = on ? '' : 'none';
+  el('reset-note').textContent = on
+    ? 'This deletes every attempt and review schedule permanently. Puzzles are kept.'
+    : 'Clears every attempt and review schedule. Your puzzles, games and explanations are kept.';
+}
+el('reset-btn').addEventListener('click', () => showConfirm(true));
+el('reset-no').addEventListener('click', () => showConfirm(false));
+el('reset-yes').addEventListener('click', async () => {
+  el('reset-yes').disabled = true;
+  const resp = await fetch('/api/reset-training', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: true }),
+  });
+  el('reset-yes').disabled = false;
+  showConfirm(false);
+  if (resp.ok) {
+    const r = await resp.json();
+    el('reset-note').textContent =
+      `Training history cleared — ${r.attempts_deleted} attempt(s) removed. Every puzzle is due again.`;
+  } else {
+    el('reset-note').textContent = 'Reset failed — is the server running?';
+  }
+  load();
+});
+
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>

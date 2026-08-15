@@ -1,0 +1,9 @@
+.venv/
+data/
+tools/
+__pycache__/
+*.pyc
+
+# static build output + the gh-pages worktree used to publish it
+dist/
+.deploy/

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Insights — Chess Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,wght@0,500;0,600;1,500&display=swap">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>&#9822;</text></svg>">
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/theme.js"></script>
+</head>
+<body>
+<header>
+  <a class="brand" href="/"><span class="mark">&#9822;</span> Chess Trainer</a>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/insights.html" class="active">Insights</a>
+    <a href="/train.html">Train</a>
+  </nav>
+  <div class="right">
+    <button id="theme-btn" class="btn subtle" aria-label="Toggle theme"></button>
+    <a class="chip" href="https://lichess.org/@/Katutx0" target="_blank"><span class="dot"></span>Katutx0</a>
+  </div>
+</header>
+<main>
+  <div class="hero">
+    <div>
+      <h1>Know thy <em>weaknesses</em>.</h1>
+      <p id="tagline">Loading&hellip;</p>
+    </div>
+  </div>
+
+  <div id="report-banner"></div>
+
+  <h2 class="section" id="report-head" style="display:none">Coach's verdicts</h2>
+  <div class="cards verdicts" id="verdicts"></div>
+  <div id="narrative"></div>
+
+  <h2 class="section">Mistakes per 100 moves — phase &times; color</h2>
+  <table class="matrix" id="phase-color"></table>
+
+  <h2 class="section">Endgames by type</h2>
+  <table class="matrix" id="endgames"></table>
+
+  <h2 class="section">Openings</h2>
+  <table class="matrix" id="openings"></table>
+
+  <h2 class="section">Mistake motifs</h2>
+  <table class="matrix" id="motifs"></table>
+
+  <h2 class="section">Trend by month</h2>
+  <div class="sparkline" id="trend"></div>
+
+  <h2 class="section">Situations</h2>
+  <div class="cards" id="situations"></div>
+
+  <h2 class="section">Statistical signals</h2>
+  <p class="fineprint">Buckets with enough moves, compared to your overall mistake rate.
+    Positive z = worse than your baseline, negative = better. |z| &ge; 2 is worth believing.</p>
+  <table class="matrix" id="signals"></table>
+</main>
+<script type="module" src="/js/insights.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "trainer",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "chess_trainer", "serve"],
+      "port": 8123,
+      "autoPort": true
+    }
+  ]
+}
