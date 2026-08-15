@@ -359,16 +359,29 @@ function renderExplore(data, { arrows = null } = {}) {
 /* Reveal without touching the engine: the answer arrow and the position's
    evaluation are both already known. On a phone a search costs ~0.5-1s and real
    battery, so it waits until there is actually something to explore. */
+
+/* Mover-perspective win% and eval string for a revealed puzzle. Playing an
+   accepted alternative gives its own numbers; otherwise the best move's stand. */
+function revealedEval(r) {
+  if (!r) return { text: '—', win: null };
+  const win = r.your_move_win_pct != null ? r.your_move_win_pct : r.win_best;
+  return { text: r.eval_yours || r.eval_best || '—', win };
+}
+
+function setBarFromMover(win) {
+  setEvalBar(win == null ? 50 : (puzzle.color === 'white' ? win : 100 - win));
+}
+
+/* The puzzle position, with the green/red arrows: the "here is the answer" view. */
 function renderBakedPuzzlePos(r) {
-  const bar = r && r.win_best != null
-    ? (puzzle.color === 'white' ? r.win_best : 100 - r.win_best)
-    : 50;
-  el('ex-eval').textContent = (r && r.eval_best) || '—';
-  setEvalBar(bar);
+  // Always the best move's evaluation here — this is the pre-move position.
+  el('ex-eval').textContent = r ? (r.eval_best || '—') : '—';
+  setBarFromMover(r ? r.win_best : null);
   cg.set({
     fen: puzzle.fen,
     turnColor: puzzle.color,
     check: false,
+    lastMove: undefined,
     movable: {
       free: false,
       color: puzzle.color,
@@ -378,7 +391,30 @@ function renderBakedPuzzlePos(r) {
   });
   cg.setAutoShapes(puzzleArrows());
   cg.redrawAll();
-  el('ex-back').disabled = true;
+  el('ex-back').disabled = histIdx <= 0;
+  el('ex-fwd').disabled = histIdx >= history.length - 1;
+}
+
+/* A position reached by playing a move, rendered from local rules alone. */
+function renderQuietPos(entry) {
+  const ev = revealedEval(entry.baked);
+  el('ex-eval').textContent = ev.text;
+  setBarFromMover(ev.win);
+  cg.set({
+    fen: entry.pos.fen,
+    turnColor: entry.pos.turn,
+    check: false,
+    lastMove: entry.lastMove,
+    movable: {
+      free: false,
+      color: entry.pos.turn,
+      dests: new Map(Object.entries(entry.pos.dests)),
+      events: { after: onMove },
+    },
+  });
+  cg.setAutoShapes([]);
+  cg.redrawAll();
+  el('ex-back').disabled = histIdx <= 0;
   el('ex-fwd').disabled = histIdx >= history.length - 1;
 }
 
@@ -390,6 +426,20 @@ async function enterExplore(solvedUci = null, revealed = null) {
   history = [{ fen: puzzle.fen, data: null, isPuzzlePos: true, baked: revealed }];
   histIdx = 0;
   if (api.deferEngine) {
+    // Leave a solved puzzle looking solved. Snapping the piece back to where it
+    // started reads as a rejected move, which is the opposite of what happened.
+    if (solvedUci) {
+      const pos = await api.positionAfter(puzzle.fen, solvedUci);
+      if (pos) {
+        history.push({
+          fen: pos.fen, data: null, pos, baked: revealed,
+          lastMove: [solvedUci.slice(0, 2), solvedUci.slice(2, 4)],
+        });
+        histIdx = 1;
+        renderQuietPos(history[1]);
+        return;
+      }
+    }
     renderBakedPuzzlePos(revealed);
     return;
   }
@@ -420,9 +470,10 @@ async function navTo(idx, force = false) {
   histIdx = idx;
   const entry = history[idx];
   if (!entry.data) {
-    // Back at the puzzle position with the engine deferred: nothing to search,
-    // the stored evaluation already describes it.
+    // With the engine deferred, the two positions the reveal produced are
+    // already fully described — navigating between them costs nothing.
     if (api.deferEngine && entry.isPuzzlePos) { renderBakedPuzzlePos(entry.baked); return; }
+    if (api.deferEngine && entry.pos) { renderQuietPos(entry); return; }
     entry.data = await evalRequest({ fen: entry.fen });
     if (!entry.data) return;
   }

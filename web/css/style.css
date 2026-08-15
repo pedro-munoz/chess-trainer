@@ -649,8 +649,35 @@ a.train-link:hover { text-decoration: underline; }
   .danger-zone .dz-actions { width: 100%; }
   .danger-zone .dz-actions .btn { flex: 1; justify-content: center; }
 
-  /* Wide tables scroll inside their own box instead of the page. */
-  .matrix { display: block; overflow-x: auto; white-space: nowrap; }
+  /* Tables have to fit a 375px screen. Text wraps rather than forcing a wide
+     table, the bar tracks stop reserving width, and the columns that only
+     restate what a neighbouring column already says are dropped.
+
+     Must be `table.matrix`, not `.matrix`: the base rule sets `overflow: hidden`
+     to clip the rounded corners, and at equal specificity that shorthand wins,
+     which clips the table dead instead of letting it scroll. */
+  table.matrix {
+    display: block;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  .matrix th, .matrix td { padding: 0.55rem 0.6rem; font-size: 0.88rem; }
+  .matrix thead th { font-size: 0.66rem; letter-spacing: 0.05em; }
+  .rate-bar { gap: 0.4rem; }
+  .rate-bar .num { min-width: 2.2rem; }
+  .rate-bar .track { min-width: 26px; }
+
+  /* Hidden on phones: sample sizes and baselines, which are context for the
+     numbers rather than the numbers themselves. They stay on the desktop. */
+  #signals th:nth-child(1), #signals td:nth-child(1),   /* dimension (implied by bucket) */
+  #signals th:nth-child(4), #signals td:nth-child(4),   /* baseline (z already encodes it) */
+  #signals th:nth-child(6), #signals td:nth-child(6),   /* move count */
+  #endgames th:nth-child(2), #endgames td:nth-child(2), /* move count */
+  #openings th:nth-child(2), #openings td:nth-child(2), /* game count */
+  #motifs th:nth-child(3), #motifs td:nth-child(3) {    /* share (mistakes shown) */
+    display: none;
+  }
 }
 
 /* A backup that is getting old is the one thing on the dashboard worth nagging

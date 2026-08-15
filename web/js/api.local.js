@@ -229,6 +229,29 @@ export async function postEval({ fen, move_uci: uci }) {
   return evalPosition(fen, uci);
 }
 
+/** Where a move leads, without evaluating it — no engine, so it is instant.
+
+    Enough to keep playing on the board after a solve; the engine only gets
+    involved once there is a position worth an opinion. */
+export async function positionAfter(fen, moveUci) {
+  const chess = new rules.Chess(fen);
+  let san = null;
+  if (moveUci) {
+    const move = rules.parseMove(chess, moveUci);
+    if (!move) return null;
+    san = rules.play(chess, move).san;
+  }
+  const over = rules.gameOver(chess);
+  return {
+    fen: chess.fen(),
+    turn: chess.turn() === 'w' ? 'white' : 'black',
+    dests: rules.dests(chess),
+    played_san: san,
+    game_over: over ? over.text : null,
+    winner: over ? over.winner : null,
+  };
+}
+
 /* The bundled engine is single-threaded wasm: a search costs ~0.5-1s on a
    phone, so reveals render from stored data and the engine waits until the
    user actually explores. */
