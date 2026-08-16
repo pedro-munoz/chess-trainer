@@ -297,9 +297,10 @@ def attempt(a: Attempt):
 
     now = db.now_s()
     conn.execute(
-        "INSERT INTO attempts (mistake_id, attempted_at, move_uci, correct, took_ms) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (mistake_id, now, a.move_uci, int(correct), a.took_ms),
+        "INSERT INTO attempts "
+        "(mistake_id, attempted_at, move_uci, correct, took_ms, sync_id) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (mistake_id, now, a.move_uci, int(correct), a.took_ms, db.new_sync_id(conn)),
     )
     # The first try decides the spaced-repetition outcome; retries are practice.
     sched = None if a.retry else srs.review(conn, mistake_id, correct, now)

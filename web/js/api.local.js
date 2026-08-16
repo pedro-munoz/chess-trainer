@@ -25,6 +25,19 @@ export async function ready() {
   return state;
 }
 
+/** Re-read training state from IndexedDB.
+
+    sync.js writes rows behind this module's back, so after a pull the cached
+    Maps are stale — and stale here means a puzzle the other device just
+    answered is still offered as due. */
+export async function refresh() {
+  if (!state) return;
+  const [srsMap, discards] = await Promise.all([store.loadSrs(), store.loadDiscards()]);
+  state.srs = srsMap;
+  state.discards = discards;
+  await reconcile(state);
+}
+
 /* ---------- dataset drift ----------
 
    Redeploys are routine: Pedro re-analyzes on the laptop and republishes, while
@@ -257,6 +270,9 @@ export async function positionAfter(fen, moveUci) {
    user actually explores. */
 export const deferEngine = true;
 export const backupSupported = true;
+// Server mode keeps its state in SQLite, where the laptop's own sync-state
+// command handles it; only the static build syncs from the browser.
+export const syncSupported = true;
 
 /* ---------- dashboard ---------- */
 

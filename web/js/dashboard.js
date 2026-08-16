@@ -71,6 +71,13 @@ el('reset-yes').addEventListener('click', async () => {
   load();
 });
 
+if (api.syncSupported) {
+  const sync = await import('./sync.js');
+  await sync.mountSyncUi(load);
+  // Pull first, so the numbers below are the ones every device agrees on.
+  sync.syncQuiet().then((r) => { if (r) load(); });
+}
+
 if (api.backupSupported) {
   const { mountBackupUi } = await import('./backup.js');
   await mountBackupUi(load);
