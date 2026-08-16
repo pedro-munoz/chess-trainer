@@ -414,6 +414,9 @@ table.matrix {
 }
 
 .controls { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+/* Going back is a rare, secondary move: it gets an arrow, not a word, so the
+   row still reads as "Next puzzle" first. */
+.controls .btn.icon { padding: 0.6rem 0.95rem; font-size: 0.8rem; }
 
 /* ---------- explore mode ---------- */
 .explore {
@@ -688,6 +691,7 @@ a.train-link:hover { text-decoration: underline; }
     font-size: 0.9rem;
   }
   .controls .btn.gold { flex: 1.7; }
+  .controls .btn.icon { flex: 0 0 auto; padding: 0.55rem 0.75rem; }
   .controls .btn kbd { display: none; }   /* there is no N key on a phone */
   .session .stat { padding: 0.8rem 0.5rem; text-align: center; }
 
