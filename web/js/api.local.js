@@ -164,7 +164,9 @@ export async function postAttempt({ pid, move_uci: uci, took_ms: tookMs, retry }
       if (baked) {
         const [, cp, mate] = baked;
         attemptWin = winPct(scoreToCp(cp, mate), pov);
-        attemptEval = fmtEval(cp, mate, pov);
+        // Acceptance is judged from the mover's side; the string on screen is
+        // white-relative, like every other eval the trainer shows.
+        attemptEval = fmtEval(cp, mate, 'w');
         correct = attemptWin >= p.wb - tolerance;
       } else if (p.mvc) {
         // The accept set is provably exhaustive: an unlisted move is wrong.
@@ -176,7 +178,7 @@ export async function postAttempt({ pid, move_uci: uci, took_ms: tookMs, retry }
         const ev = await evaluatePosition(after.fen());
         if (ev) {
           attemptWin = winPct(scoreToCp(ev.cp, ev.mate), pov);
-          attemptEval = fmtEval(ev.cp, ev.mate, pov);
+          attemptEval = fmtEval(ev.cp, ev.mate, 'w');
           correct = attemptWin >= p.wb - tolerance;
         } else {
           correct = false;
