@@ -54,7 +54,6 @@ def build_puzzles(conn, config) -> list[dict]:
     out, missing_accept = [], 0
     for r in rows:
         key = (r["game_id"], r["ply"])
-        pov = chess.Board(r["fen"]).turn
         moves, complete = accept_sets.get(key, ([], 0))
         if key not in accept_sets:
             missing_accept += 1
@@ -87,10 +86,10 @@ def build_puzzles(conn, config) -> list[dict]:
         if r["phase"] == "endgame":
             p["eg"] = insights.classify_endgame(r["fen"])
         # The trainer's only use of the evals table: the eval shown next to the
-        # best move after a reveal.
+        # best move after a reveal. White-relative, like every eval on screen.
         ev = evals.get(key)
         if ev:
-            p["ev"] = judgments.fmt_eval(ev["score_cp"], ev["score_mate"], pov)
+            p["ev"] = judgments.fmt_eval(ev["score_cp"], ev["score_mate"], chess.WHITE)
         out.append(p)
 
     if missing_accept:

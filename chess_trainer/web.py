@@ -292,7 +292,9 @@ def attempt(a: Attempt):
                 ev = eng.evaluate(_get_engine(), after, config["trainer"]["check_nodes"])
             cp = judgments.score_to_cp(ev.score_cp, ev.score_mate)
             attempt_win = judgments.win_pct(cp, user_color)
-            attempt_eval_str = judgments.fmt_eval(ev.score_cp, ev.score_mate, user_color)
+            # Shown on screen, so white-relative like every board eval: '+' means
+            # white stands better whichever side the puzzle is played from.
+            attempt_eval_str = judgments.fmt_eval(ev.score_cp, ev.score_mate, chess.WHITE)
             correct = attempt_win >= row["win_before"] - config["trainer"]["tolerance_winpct"]
 
     now = db.now_s()
@@ -307,7 +309,7 @@ def attempt(a: Attempt):
     ev_best = conn.execute(
         "SELECT score_cp, score_mate FROM evals WHERE game_id = ? AND ply = ?",
         (row["game_id"], row["ply"])).fetchone()
-    eval_best = (judgments.fmt_eval(ev_best["score_cp"], ev_best["score_mate"], user_color)
+    eval_best = (judgments.fmt_eval(ev_best["score_cp"], ev_best["score_mate"], chess.WHITE)
                  if ev_best else None)
     return {
         "correct": correct,

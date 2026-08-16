@@ -239,7 +239,9 @@ function retryFeedback(r) {
   fb.className = 'feedback wrong';
   let msg = `✗ ${r.your_move_san} isn't the best move — try again.`;
   if (r.eval_yours !== null && r.eval_best !== null) {
-    msg = `✗ ${r.your_move_san} drops the evaluation to ${r.eval_yours}; `
+    // Both strings are white-relative, so no "drops to" wording: for black the
+    // worse move is the higher number.
+    msg = `✗ ${r.your_move_san} leaves the evaluation at ${r.eval_yours}; `
         + `the best move keeps ${r.eval_best}. Try again.`;
   }
   el('fb-title').textContent = msg;
@@ -377,8 +379,9 @@ function renderExplore(data, { arrows = null } = {}) {
    evaluation are both already known. On a phone a search costs ~0.5-1s and real
    battery, so it waits until there is actually something to explore. */
 
-/* Mover-perspective win% and eval string for a revealed puzzle. Playing an
-   accepted alternative gives its own numbers; otherwise the best move's stand. */
+/* White-relative eval string plus the mover-perspective win% the bar needs, for a
+   revealed puzzle. Playing an accepted alternative gives its own numbers;
+   otherwise the best move's stand. */
 function revealedEval(r) {
   if (!r) return { text: '—', win: null };
   const win = r.your_move_win_pct != null ? r.your_move_win_pct : r.win_best;
