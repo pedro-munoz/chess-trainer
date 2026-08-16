@@ -185,6 +185,12 @@ it if you want to query the history with SQL.
 cannot run in CI: it needs `data/trainer.db` and the local Stockfish, neither of
 which is pushed.
 
+**Merging to `main` means deploying.** `main` is not the thing Pedro uses — the
+`gh-pages` build is — so a merged change that is not deployed has not shipped.
+After any merge into `main` (yours or one you are asked to land), pull `main` in
+the primary checkout and run `deploy_pages` from it, then say what went out. The
+same rule as the import pipeline: do not stop one step short of the phone.
+
 ## Coach report (Insights page)
 
 The Insights page (`/insights.html`) always shows live stats from `/api/insights`.
