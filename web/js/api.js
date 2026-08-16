@@ -24,5 +24,6 @@ const impl = MODE === 'static'
 
 export const {
   getStats, getNext, postAttempt, postEval, postDiscard, getInsights,
-  resetTraining, ready, deferEngine, backupSupported, positionAfter,
+  resetTraining, ready, deferEngine, backupSupported, syncSupported,
+  positionAfter,
 } = impl;

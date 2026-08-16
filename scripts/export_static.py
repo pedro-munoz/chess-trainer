@@ -9,7 +9,6 @@ baked into each puzzle record.
 """
 
 import argparse
-import hashlib
 import json
 import shutil
 import time
@@ -18,7 +17,7 @@ from pathlib import Path
 import chess
 
 from chess_trainer import (PROJECT_ROOT, accept, db, insights, judgments,
-                           load_config)
+                           load_config, sync_state)
 
 DIST = PROJECT_ROOT / "dist"
 WEB = PROJECT_ROOT / "web"
@@ -28,14 +27,11 @@ COPY_TREES = ["css", "js", "vendor", "icons"]
 COPY_FILES = ["index.html", "train.html", "insights.html", "manifest.webmanifest"]
 
 
-def _hash(fen: str, best_uci: str, judgment: str) -> str:
-    """Content hash: changes exactly when a puzzle's answer changes.
-
-    The client resets a card's schedule when this moves, so it must cover what
-    makes the puzzle a different question and nothing else. Explanation edits
-    deliberately do not count.
-    """
-    return hashlib.sha1(f"{fen}|{best_uci}|{judgment}".encode()).hexdigest()[:8]
+# Content hash: changes exactly when a puzzle's answer changes, which is what
+# makes a client reset that card's schedule. The definition moved into the
+# package once sync_state needed to agree with it — a second copy here would be
+# a second thing to keep in step.
+_hash = sync_state.puzzle_hash
 
 
 def build_puzzles(conn, config) -> list[dict]:

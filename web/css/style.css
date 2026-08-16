@@ -38,6 +38,10 @@
 }
 
 * { box-sizing: border-box; }
+/* The UA's `[hidden] { display: none }` is an unlayered UA rule, so any author
+   `display` beats it — .danger-zone's `display: flex` was quietly showing the
+   static build's blocks on the dev server. Author-level, so it wins. */
+[hidden] { display: none !important; }
 html { color-scheme: dark; }
 html[data-theme="light"] { color-scheme: light; }
 body {
@@ -601,6 +605,35 @@ a.train-link:hover { text-decoration: underline; }
 }
 .btn.danger-solid:hover { filter: brightness(1.08); background: var(--blunder); }
 
+/* The sync setup form drops onto its own row inside the flex zone. */
+.danger-zone .dz-form {
+  flex-basis: 100%;
+  display: flex; flex-direction: column; gap: 0.75rem;
+  margin-top: 0.35rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.danger-zone .dz-form label {
+  display: flex; flex-direction: column; gap: 0.3rem;
+  font-size: 0.8rem; color: var(--ink-faint);
+}
+.danger-zone .dz-form input {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit; font-size: 0.9rem;
+}
+.danger-zone .dz-form input:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.danger-zone .dz-form .fineprint { margin: 0; max-width: 62ch; }
+.danger-zone .dz-form code {
+  padding: 0.05em 0.3em;
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  font-size: 0.9em;
+}
+
 /* ---------- service-worker update prompt ---------- */
 .sw-toast {
   position: fixed;
@@ -734,6 +767,11 @@ a.train-link:hover { text-decoration: underline; }
    about: this device holds the only copy of the schedule. */
 #backup-zone { border-left-color: var(--line-strong); }
 #backup-zone.stale { border-left-color: var(--gold); }
+
+/* Sync is a normal setting, not a warning — until it is off, in which case it
+   reads like the backup nag, because it is the same problem. */
+#sync-zone { border-left-color: var(--green); }
+#sync-zone.off { border-left-color: var(--line-strong); }
 
 /* ---------- board coordinates, Lichess-style ----------
 

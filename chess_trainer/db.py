@@ -2,6 +2,7 @@
 
 import sqlite3
 import time
+import uuid
 
 from . import DATA_DIR
 
@@ -71,7 +72,8 @@ CREATE TABLE IF NOT EXISTS attempts (
     attempted_at INTEGER NOT NULL,
     move_uci     TEXT,                       -- NULL = gave up
     correct      INTEGER NOT NULL,
-    took_ms      INTEGER
+    took_ms      INTEGER,
+    sync_id      TEXT                        -- "<device>:<uuid>"; identity across devices
 );
 
 CREATE TABLE IF NOT EXISTS scheduling (
@@ -80,7 +82,9 @@ CREATE TABLE IF NOT EXISTS scheduling (
     interval_days REAL NOT NULL DEFAULT 0,
     due_at        INTEGER NOT NULL DEFAULT 0, -- s epoch; 0 = due now
     reps          INTEGER NOT NULL DEFAULT 0,
-    lapses        INTEGER NOT NULL DEFAULT 0
+    lapses        INTEGER NOT NULL DEFAULT 0,
+    last_at       INTEGER,                    -- last review; the sync merge's LWW key
+    h             TEXT                        -- puzzle content hash the schedule refers to
 );
 
 CREATE TABLE IF NOT EXISTS meta (
@@ -124,6 +128,29 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE mistakes ADD COLUMN motif TEXT")
         conn.commit()
 
+    # Cross-device sync (sync_state.py) needs two things the local-only schema
+    # never did: an identity for each attempt that survives leaving this
+    # database, and a review timestamp to break ties against other devices.
+    if "sync_id" not in [r[1] for r in conn.execute("PRAGMA table_info(attempts)")]:
+        conn.execute("ALTER TABLE attempts ADD COLUMN sync_id TEXT")
+        conn.commit()
+    # UNIQUE on a nullable column still allows many NULLs in SQLite, which is
+    # what pre-sync rows need — they are backfilled on the first sync.
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS attempts_sync_id ON attempts(sync_id)")
+    sched_cols = [r[1] for r in conn.execute("PRAGMA table_info(scheduling)")]
+    if "last_at" not in sched_cols:
+        conn.execute("ALTER TABLE scheduling ADD COLUMN last_at INTEGER")
+        conn.commit()
+    # Carried, not recomputed: `h` says which version of the puzzle a schedule
+    # was earned against, and the authority on that is the device that did the
+    # reviewing. If the laptop recomputed it from a re-analyzed mistakes row,
+    # every phone card would reset the moment the laptop synced — before the
+    # rebuilt puzzle had even been deployed.
+    if "h" not in sched_cols:
+        conn.execute("ALTER TABLE scheduling ADD COLUMN h TEXT")
+        conn.commit()
+
 
 def get_meta(conn: sqlite3.Connection, key: str) -> str | None:
     row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
@@ -140,3 +167,23 @@ def set_meta(conn: sqlite3.Connection, key: str, value: str) -> None:
 
 def now_s() -> int:
     return int(time.time())
+
+
+def device_id(conn: sqlite3.Connection) -> str:
+    """Stable id for this machine, minted on first use.
+
+    It prefixes the sync_id of every attempt recorded here, which is how
+    sync_state.py partitions the append-only log between devices: each one
+    publishes its own rows and nobody else's.
+    """
+    value = get_meta(conn, "device_id")
+    if not value:
+        value = uuid.uuid4().hex[:8]
+        set_meta(conn, "device_id", value)
+        set_meta(conn, "device_label", "laptop")
+        conn.commit()
+    return value
+
+
+def new_sync_id(conn: sqlite3.Connection) -> str:
+    return f"{device_id(conn)}:{uuid.uuid4()}"

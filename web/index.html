@@ -35,6 +35,34 @@
 
   <div class="cards" id="cards"></div>
 
+  <div class="danger-zone" id="sync-zone" hidden>
+    <div class="dz-text">
+      <b>Sync across devices</b>
+      <span id="sync-note">Loading&hellip;</span>
+    </div>
+    <div class="dz-actions">
+      <button id="sync-now" class="btn">Sync now</button>
+      <button id="sync-setup" class="btn subtle">Set up&hellip;</button>
+    </div>
+    <form id="sync-form" class="dz-form" hidden>
+      <label>Gist id or URL
+        <input id="sync-gist" type="text" autocomplete="off" spellcheck="false"
+               placeholder="the secret gist holding your training state"></label>
+      <label>Access token
+        <input id="sync-token" type="password" autocomplete="off"
+               placeholder="classic GitHub token with the gist scope"></label>
+      <label>Name for this device
+        <input id="sync-label" type="text" autocomplete="off" placeholder="phone"></label>
+      <div class="dz-actions">
+        <button id="sync-save" class="btn gold" type="submit">Save and sync</button>
+        <button id="sync-forget" class="btn subtle" type="button">Forget on this device</button>
+      </div>
+      <p class="fineprint">The token stays in this browser and is never part of the
+        published build. A classic token with the <code>gist</code> scope can read
+        and write every gist on the account &mdash; GitHub has no narrower option.</p>
+    </form>
+  </div>
+
   <div class="danger-zone" id="backup-zone" hidden>
     <div class="dz-text">
       <b>Backup training progress</b>

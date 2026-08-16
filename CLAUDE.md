@@ -8,13 +8,16 @@ No Lichess credentials are used anywhere; only the public API / manual exports.
 **Pedro trains on his phone, not here.** The laptop is the authoring and analysis
 environment; the thing he actually uses is a static build of the same frontend,
 published to GitHub Pages and installed as a PWA (see "Static build" below). The
-FastAPI server is for developing, analyzing and writing insights — its `attempts`
-and `scheduling` tables stay empty because no training happens against it.
+FastAPI server is for developing, analyzing and writing insights.
+
+Training state is shared between devices through a secret GitHub Gist (see
+"Cross-device sync" below), so the laptop's `attempts` and `scheduling` tables
+are no longer empty — they hold whatever the phone has synced up.
 
 ## Layout
 
 - `chess_trainer/` — Python package
-  - `cli.py` — entry point: `python -m chess_trainer {sync|analyze|serve}`
+  - `cli.py` — entry point: `python -m chess_trainer {sync|analyze|serve|sync-state}`
   - `lichess.py` — game download (API NDJSON stream) + `--file` import (NDJSON or PGN)
   - `db.py` — SQLite schema (`data/trainer.db`): games, evals, mistakes, attempts,
     scheduling, meta, accept_sets
@@ -30,7 +33,13 @@ and `scheduling` tables stay empty because no training happens against it.
   - `explain.py` — rule-based explanations (`explanation_source='rules'`; `'claude'` reserved for future LLM-generated ones)
     + `classify_motif()` → `mistakes.motif` (allowed_mate/missed_mate/hanging_piece/
     missed_fork/allowed_fork/missed_material/positional; NULL reads as positional)
-  - `srs.py` — SM-2-lite scheduling (fail → due in 10 min; success → 1d, 3d, then ×ease)
+  - `srs.py` — SM-2-lite scheduling (fail → due in 10 min; success → 1d, 3d, then ×ease).
+    Also stamps `scheduling.last_at` and `.h`, which the sync merge needs
+  - `gist.py` — the secret gist as a transport: read every `state-*.json`, write ours.
+    Credentials from `data/gist_auth.json` (gitignored) or `CHESS_TRAINER_GIST_*`
+  - `sync_state.py` — the laptop's half of cross-device sync, and the home of
+    `puzzle_hash()` (which `export_static` imports, so there is one definition).
+    `merge_srs_row()` is a pure function, the deliberate twin of `merge.js`
   - `insights.py` — strengths/weaknesses stats: builds per-own-move facts from `evals`
     (denominators!), aggregates rates per color/phase/endgame-type/opening-family/
     motif/move-band/rating-gap/month, emits z-score signals vs the overall rate, and
@@ -61,9 +70,11 @@ and `scheduling` tables stay empty because no training happens against it.
   `classify_motif`; no re-analysis needed for either),
   `export_explain_batches.py` / `import_claude_explanations.py` (detailed
   explanations, see below), `reset_training.py --yes` (wipe `attempts` +
-  `scheduling` for a fresh start; puzzles/evals/explanations untouched).
+  `scheduling` for a fresh start; puzzles/evals/explanations untouched),
+  `check_merge_ports.py` (merge.js vs sync_state — run after touching either).
   Static build: `precompute_accept.py`, `export_static.py`, `deploy_pages.py`,
-  `serve_dist.py`, `import_phone_state.py`, plus the one-off asset generators
+  `serve_dist.py`, `import_phone_state.py` (largely superseded by
+  `chess_trainer sync-state`), plus the one-off asset generators
   `vendor_fonts.py` and `make_icons.py`
 - `web/` — frontend, no build step, **serves both modes**. `index.html` dashboard
   (hero + summary cards only; all breakdowns live on Insights — `/api/stats` still
@@ -77,9 +88,12 @@ and `scheduling` tables stay empty because no training happens against it.
     (everything in-browser) based on `js/config.js`, which the export rewrites.
     **UI code only ever calls the `api.*` contract** — keep both backends
     returning the identical JSON shapes
-  - `js/{data,store,srs,judgments,rules,engine,backup,pwa,dashboard}.js` are
-    static-mode support; `srs.js`, `judgments.js` and `rules.js` are ports of the
-    Python and must be changed in step with it
+  - `js/{data,store,srs,judgments,rules,engine,backup,merge,sync,pwa,dashboard}.js`
+    are static-mode support; `srs.js`, `judgments.js`, `rules.js` and `merge.js`
+    are ports of the Python and must be changed in step with it
+  - `js/merge.js` holds the merge rules for training state arriving from
+    elsewhere; `backup.js` (file restore) and `sync.js` (gist) both use it, and
+    `sync_state.merge_srs_row` is its Python twin
   - `web/vendor/` is committed (chessground, chess.js, latin-subset fonts,
     Stockfish wasm) — offline needs it, and it is a build input
 - `config.toml` — username, stockfish path, nodes/thresholds/tolerance, port (8123)
@@ -93,6 +107,7 @@ Run everything from the project root with `./.venv/Scripts/python.exe`.
 **Bringing in new games is one pipeline, and every step is mandatory:**
 
 ```
+./.venv/Scripts/python.exe -m chess_trainer sync-state  # 0. take the phone's discards first
 ./.venv/Scripts/python.exe -m chess_trainer sync      # 1. download only NEW games (incremental)
 ./.venv/Scripts/python.exe -m chess_trainer analyze   # 2. analyze pending games -> new puzzles
 ./.venv/Scripts/python.exe -m scripts.export_explain_batches   # 3. explain (see below)
@@ -100,6 +115,10 @@ Run everything from the project root with `./.venv/Scripts/python.exe`.
 ./.venv/Scripts/python.exe -m scripts.import_claude_explanations
 ./.venv/Scripts/python.exe -m scripts.deploy_pages    # 4. upload to the phone
 ```
+
+Step 0 is cheap and belongs before step 2: a puzzle Pedro discarded on the phone
+should reach `mistakes.discarded_at` before re-analysis or the next export can
+ship it again.
 
 **Never stop after `analyze`.** New puzzles land with `explanation_source='rules'`,
 and shipping those means Pedro trains on blunt rule-generated text while every
@@ -167,15 +186,18 @@ never deleted, because re-analysis may bring it back.
 So: **do not re-analyze already-analyzed games casually.** A different node count
 changes some `best_uci` values, which changes `h`, which resets those cards.
 
-### Training state lives only on the phone
+### Training state lives on every device, and is shared
 
 IndexedDB `chess-trainer`: stores `srs` (keyed by pid), `attempts`, `discards`,
 `meta`. `navigator.storage.persist()` is requested on first load, but "Clear
 browsing data" still wipes everything — hence the dashboard's Backup block and
-its 14-day nag. `scripts/import_phone_state.py --file <backup.json>` carries
-**discards** back into `mistakes.discarded_at`; without that step the next export
-ships them again. `--srs` also mirrors the schedule/attempts, which is only worth
-it if you want to query the history with SQL.
+its 14-day nag, which remain the offline safety net. Cross-device sync (below)
+is the online one.
+
+`scripts/import_phone_state.py --file <backup.json>` still works and is still
+the way in from a downloaded backup file, but `python -m chess_trainer
+sync-state` supersedes it for the daily case: it carries discards *and* the
+schedule and attempt log, in both directions, without a file changing hands.
 
 ### Deploying
 
@@ -190,6 +212,87 @@ which is pushed.
 After any merge into `main` (yours or one you are asked to land), pull `main` in
 the primary checkout and run `deploy_pages` from it, then say what went out. The
 same rule as the import pipeline: do not stop one step short of the phone.
+
+## Cross-device sync
+
+One secret GitHub Gist holds the training state; every device reads all of it
+and writes exactly one file, `state-<device_id>.json`. The phone and any other
+browser sync from `web/js/sync.js`; the laptop syncs with
+`python -m chess_trainer sync-state`. Same protocol, same files.
+
+**Why one file per device.** The gist API has no conditional write — no ETag,
+no `If-Match` — so one shared blob under read-modify-write can lose an update
+whenever two devices are open at once. Giving each device its own file means
+nobody ever overwrites anybody: the conflict window is removed rather than
+narrowed. Reading is the union of the files.
+
+What each file carries follows from how its store merges:
+
+| store | file contains | merge rule |
+|---|---|---|
+| `srs` | the device's whole view | last-write-wins on `last_at`; **`lapses` is `max()`** |
+| `discards` | the device's whole view | union — never undone by a peer |
+| `attempts` | only rows this device recorded | append-only, deduped by id |
+
+`srs` and `discards` are mirrored by everyone, which costs ~110 bytes a row and
+makes every file a complete restore point. `attempts` is the one store that
+grows without bound, so it is partitioned instead: each row's id is
+`<device_id>:<uuid>`, and a device publishes only its own prefix.
+
+**`lapses` must not follow the LWW winner.** It counts how often Pedro got a
+puzzle wrong — evidence about him, not a property of the schedule — and
+`focus=1` weights selection by `15 * lapses`. Plain LWW would silently drop a
+failure recorded on the other device.
+
+**`h` is carried, never recomputed.** It says which version of a puzzle a
+schedule was earned against, and the authority is the device that did the
+reviewing. If the laptop recomputed it from a re-analyzed `mistakes` row, every
+phone card would reset the moment the laptop synced — before the rebuilt puzzle
+had even been deployed. Hence `scheduling.h`: the laptop stores what it
+receives, and computes only for reviews it performs itself.
+
+**"Reset training" travels as a timestamp.** Without it the next pull would
+restore the schedule from a peer that had not heard. Every device drops rows
+older than the newest `reset_at` it sees and refuses to import them. Discards
+survive, matching `srs.reset_training`.
+
+**`orphan_since` is never shared** — it describes one device's dataset, not the
+schedule, so it is stripped on push and preserved locally on merge.
+
+### The merge is a port, and is tested as one
+
+`web/js/merge.js` and `sync_state.merge_srs_row` are two halves of one rule.
+`python -m scripts.check_merge_ports` generates 2,583 cases, runs both, and
+diffs them — 2583/2583 agree today. Run it after touching either side; it needs
+node on PATH. (Verified to actually bite: making the JS take the winner's
+`lapses` instead of `max()` fails 832 cases.)
+
+Note the reset filter sits *inside* `mergeSrs` on the JS side and one level up
+in `_merge_srs` on the Python side, so the checker calls the JS with
+`resetAt = -1`. Compare without that and you get ~375 phantom diffs, all rows
+with `last_at = 0`.
+
+### Credentials, and what they cost
+
+A **classic** PAT with the `gist` scope. Fine-grained tokens still cannot reach
+gists, and `gist` cannot be narrowed to one gist — that token can read and write
+every gist on the account. On phones it lives in `localStorage` (entered through
+the dashboard, never built into `config.js`); on the laptop in
+`data/gist_auth.json`, which is gitignored. `python -m chess_trainer sync-state
+--init` writes the blank file.
+
+Setup, which Pedro does himself: create the secret gist, create the token at
+github.com/settings/tokens (classic, `gist` scope only), then paste both into
+each device's dashboard and into `data/gist_auth.json`.
+
+### Failure behaviour
+
+Sync never blocks training. `syncQuiet()` swallows everything — offline is the
+normal case — and the board renders before sync is even imported. Errors surface
+only on the dashboard's explicit "Sync now": 401 reads as a rejected token, 404
+as a wrong gist id or a fine-grained token, 403/429 as the rate limit. Writes are
+skipped entirely when the payload is unchanged, so idle devices do not churn the
+gist's history.
 
 ## Coach report (Insights page)
 
@@ -346,6 +449,29 @@ export/explain/import cycle picks them up again).
     **Do not "fix" any of this by editing `web/vendor/chessground/` —
     re-vendoring would silently undo it.**
 
+### Sync findings (2026-08-16)
+
+18. **Gists are classic-token-only.** Fine-grained PATs expose a "Gists"
+    permission that does not work — GitHub's own docs still list gist access
+    among the things requiring a classic token, and `gh gist list` fails the
+    same way (cli/cli#7803). There is also no way to scope `gist` to one gist.
+19. **Google Drive appdata was evaluated and rejected.** On a personal Gmail,
+    an OAuth consent screen left in Testing expires refresh tokens after seven
+    days, which would mean re-authorizing the laptop weekly; escaping that means
+    putting a one-user app through sensitive-scope verification. A Workspace
+    account could have used "Internal" and skipped both. It is not one.
+20. **`[hidden]` loses to any author `display`.** The UA's
+    `[hidden] { display: none }` is unlayered, so `.danger-zone { display: flex }`
+    beat it and the static build's Backup block had been rendering on the dev
+    server all along — inert, since its listeners are never attached there.
+    `style.css` now carries an author-level `[hidden] { display: none !important }`.
+    Worth remembering before adding any `hidden` element to a styled container.
+21. **`go nodes` determinism does not apply here, but clock skew does.** The
+    merge's LWW key is a device clock. Two devices a few seconds apart resolve
+    by whichever timestamp is larger, which is the intended behaviour and not
+    worth defending against — but it is why the tie-break (more `reps` wins) has
+    to be deterministic rather than "keep mine".
+
 ## Conventions
 
 - Win%/judgment math mirrors Lichess: `Win% = 50 + 50*(2/(1+exp(-0.00368208*cp))-1)`,
@@ -361,7 +487,12 @@ export/explain/import cycle picks them up again).
   dev server (`trainer`, 8123) and the built site (`trainer-static`, 8124, which
   mounts under `/chess-trainer/` so subpath bugs surface). Paths in HTML/JS are
   relative (`./css/...`), never absolute.
-- `srs.js`, `judgments.js` and `rules.js` are line-for-line ports of `srs.py`,
-  `judgments.py` and the python-chess helpers in `web.py`/`analysis.py`. Change them
-  together, and re-run the equivalence check over all puzzle FENs when touching
-  `rules.js` (dests, endgame type, move parsing and SAN were verified 1060/1060).
+- `srs.js`, `judgments.js`, `rules.js` and `merge.js` are line-for-line ports of
+  `srs.py`, `judgments.py`, the python-chess helpers in `web.py`/`analysis.py`, and
+  `sync_state.merge_srs_row`. Change them together, and re-run the equivalence check
+  when touching them: over all puzzle FENs for `rules.js` (dests, endgame type, move
+  parsing and SAN were verified 1060/1060), and over generated merge cases for
+  `merge.js` (2584/2584).
+- Anything that must survive a round trip through the gist needs an identity that
+  is not a local autoincrement — `pid` for puzzles, `<device>:<uuid>` for attempts.
+  This is the same rule as "keys off `pid`, never `mistakes.id`", one level out.

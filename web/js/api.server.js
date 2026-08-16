@@ -43,5 +43,6 @@ export const resetTraining = () => postJson('/api/reset-training', { confirm: tr
 export const ready = () => Promise.resolve();
 export const deferEngine = false;
 export const backupSupported = false;
+export const syncSupported = false;
 // Only needed when the engine is deferred, which it never is here.
 export const positionAfter = () => Promise.resolve(null);

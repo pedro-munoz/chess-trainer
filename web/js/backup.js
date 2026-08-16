@@ -9,21 +9,27 @@
    back to the laptop so re-analysis doesn't resurrect them. */
 
 import * as store from './store.js';
+import * as merge from './merge.js';
 
 export const BACKUP_KIND = 'chess-trainer-backup';
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 const NAG_AFTER_S = 14 * 86400;
 
 export async function buildBackup() {
-  const [srs, discards, attempts, buildId] = await Promise.all([
+  await store.migrateAttemptIds();
+  const [srs, discards, attempts, buildId, device, label, resetAt] = await Promise.all([
     store.getAll('srs'), store.getAll('discards'), store.getAll('attempts'),
-    store.getMeta('build_id', null),
+    store.getMeta('build_id', null), store.deviceId(), store.deviceLabel(),
+    store.getMeta('reset_at', 0),
   ]);
   return {
     kind: BACKUP_KIND,
     version: BACKUP_VERSION,
     exported_at: Math.floor(Date.now() / 1000),
     build_id: buildId,
+    device,
+    device_label: label,
+    reset_at: resetAt,
     srs,
     discards,
     attempts,
@@ -35,23 +41,25 @@ export async function restoreBackup(payload) {
   if (payload.version > BACKUP_VERSION) throw new Error('backup is from a newer version');
 
   // Merge rather than replace: a restore should never lose reviews done since
-  // the file was written. Newest last_at wins.
-  const existing = await store.loadSrs();
-  const merged = [];
-  for (const row of payload.srs || []) {
-    const mine = existing.get(row.pid);
-    if (!mine || (row.last_at || 0) > (mine.last_at || 0)) merged.push(row);
-  }
-  await store.putMany('srs', merged);
-  await store.putMany('discards', payload.discards || []);
+  // the file was written. Rules live in merge.js, shared with sync.js — in
+  // particular the dedupe that stops a second restore doubling the attempt log.
+  await store.migrateAttemptIds();
+  const [srsMap, discardSet, attempts] = await Promise.all([
+    store.loadSrs(), store.loadDiscards(), store.getAll('attempts'),
+  ]);
+  const knownIds = new Set(attempts.map((a) => a.id));
+  const resetAt = await store.getMeta('reset_at', 0);
 
-  // Attempts are an append-only log with autoIncrement keys; drop the incoming
-  // ids so a restore cannot overwrite unrelated local rows.
-  const attempts = (payload.attempts || []).map(({ id, ...rest }) => rest);
-  await store.putMany('attempts', attempts);
+  const srsWrites = merge.mergeSrs(srsMap, payload.srs, resetAt);
+  const discardWrites = merge.mergeDiscards(discardSet, payload.discards);
+  const attemptWrites = merge.mergeAttempts(knownIds, payload.attempts, resetAt);
 
-  return { srs: merged.length, discards: (payload.discards || []).length,
-           attempts: attempts.length };
+  await store.putMany('srs', srsWrites);
+  await store.putMany('discards', discardWrites);
+  await store.putMany('attempts', attemptWrites);
+
+  return { srs: srsWrites.length, discards: discardWrites.length,
+           attempts: attemptWrites.length };
 }
 
 function download(payload) {

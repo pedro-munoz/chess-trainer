@@ -3,6 +3,10 @@
 import { Chessground as CG } from '../vendor/chessground/chessground.min.js';
 import * as api from './api.js';
 
+/* Set once the static build's sync module is loaded; null in server mode,
+   where the laptop's own `sync-state` command carries state instead. */
+let sync = null;
+
 let cg = null;
 let puzzle = null;
 let solvedOrRevealed = false;   // answer shown; board belongs to explore mode
@@ -276,6 +280,9 @@ async function submit(uci) {
     if (r.correct) { session.solved++; session.streak++; }
     else { session.failed++; session.streak = 0; }
     renderSession();
+    // Debounced: a session is a burst of writes, and one push at the end of it
+    // is worth the same as twenty during it.
+    sync?.syncSoon();
   }
   saveState();
 
@@ -584,6 +591,7 @@ el('prev').addEventListener('click', goPrev);
 el('discard').addEventListener('click', async () => {
   if (!puzzle) return;
   await api.postDiscard(puzzle.pid);
+  sync?.syncSoon();
   seen.splice(seenIdx, 1);   // gone forever: it must not come back via Previous
   if (seenIdx < seen.length) showEntry(seen[seenIdx]);
   else { seenIdx = seen.length - 1; loadPuzzle(); }
@@ -605,3 +613,11 @@ renderFocusPill();
 renderSession();
 renderNav();
 loadPuzzle();
+
+/* Sync last: the board should not wait on the network. autoSync() pulls once
+   now — so a session started on the phone continues where the tablet left off —
+   and flushes whatever is pending when the page is hidden. */
+if (api.syncSupported) {
+  sync = await import('./sync.js');
+  sync.autoSync();
+}
