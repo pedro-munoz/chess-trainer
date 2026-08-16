@@ -12,7 +12,8 @@
       "name": "trainer-static",
       "runtimeExecutable": ".venv\\Scripts\\python.exe",
       "runtimeArgs": ["-m", "scripts.serve_dist", "--base", "/chess-trainer/"],
-      "port": 8124
+      "port": 8124,
+      "autoPort": true
     }
   ]
 }

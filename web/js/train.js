@@ -14,6 +14,15 @@ let history = [];               // [{fen, data}] explore positions, data = /api/
 let histIdx = -1;
 const session = { solved: 0, failed: 0, streak: 0 };
 
+/* The trail of puzzles shown this session, so "Previous" can walk back through
+   them. Each entry carries the state the puzzle was left in — a revealed one
+   comes back revealed, an unanswered one comes back unanswered — because the
+   SRS outcome is already decided and re-solving it must not count twice. */
+let seen = [];
+let seenIdx = -1;
+let cur = null;                 // seen[seenIdx], or null while the empty state shows
+let pendingEmpty = false;       // "no puzzles due" is on screen; it is not in `seen`
+
 const el = (id) => document.getElementById(id);
 
 /* Snap the board to a multiple of 16 CSS pixels so squares land on whole
@@ -85,7 +94,7 @@ function renderFocusPill() {
     Object.keys(extra).forEach((k) => delete extra[k]);
     window.history.replaceState(null, '', location.pathname); // `history` is the explore stack
     renderFocusPill();
-    loadPuzzle();
+    loadPuzzle({ replace: true });
   });
 }
 
@@ -116,9 +125,7 @@ function hideEvalBar() {
 
 /* ---------- puzzle flow ---------- */
 
-async function loadPuzzle() {
-  solvedOrRevealed = false;
-  firstTryDone = false;
+function resetView() {
   exploring = false;
   history = [];
   histIdx = -1;
@@ -128,6 +135,51 @@ async function loadPuzzle() {
   el('feedback').style.display = 'none';
   el('giveup').disabled = false;
   el('discard').disabled = false;
+}
+
+/* Keep the trail in step with the puzzle on screen: a wrong first try decides
+   the SRS outcome even if you move on, so coming back must not offer another
+   first try. Whether the answer is out is `reveal` — no separate flag. */
+function saveState() {
+  if (cur) cur.firstTryDone = firstTryDone;
+}
+
+function renderNav() {
+  el('prev').disabled = pendingEmpty ? seen.length === 0 : seenIdx <= 0;
+}
+
+function renderPuzzleText() {
+  el('tags').innerHTML = '';  // judgment and motif would give the answer away
+  el('prompt').innerHTML =
+    `${puzzle.color === 'white' ? 'White' : 'Black'} to play — you chose ` +
+    `<span class="move">${puzzle.played_san}</span>. Find a better move.`;
+  const g = puzzle.game;
+  el('meta').innerHTML =
+    `<span>${g.speed} vs ${g.opponent}${g.opponent_rating ? ' (' + g.opponent_rating + ')' : ''}</span>` +
+    `<span>${fmtDate(g.played_at)}</span>` +
+    `<a href="${g.url}" target="_blank">view game &nearr;</a>`;
+}
+
+function showEntry(entry) {
+  cur = entry;
+  pendingEmpty = false;
+  puzzle = entry.puzzle;
+  firstTryDone = entry.firstTryDone;
+  solvedOrRevealed = false;   // reveal() sets it again for an answered puzzle
+  // The clock is for this visit: a puzzle left open while you looked at others
+  // did not take you an hour to think about.
+  startedAt = Date.now();
+  resetView();
+  renderPuzzleText();
+  setPuzzleBoard();
+  if (entry.reveal) reveal(entry.reveal, entry.solvedUci);
+  renderNav();
+}
+
+async function loadPuzzle({ replace = false } = {}) {
+  solvedOrRevealed = false;
+  firstTryDone = false;
+  resetView();
 
   const { kinds, phases, color } = filters();
   const params = {};
@@ -139,6 +191,8 @@ async function loadPuzzle() {
 
   if (!data.puzzle) {
     puzzle = null;
+    cur = null;
+    pendingEmpty = true;
     el('tags').innerHTML = '';
     el('prompt').innerHTML = '<span class="empty">No puzzles due with these filters.'
       + (data.next_due_in_s != null
@@ -146,21 +200,19 @@ async function loadPuzzle() {
       + '</span>';
     el('meta').textContent = '';
     if (cg) cg.set({ viewOnly: true });
+    renderNav();
     return;
   }
 
-  puzzle = data.puzzle;
-  setPuzzleBoard();
-  el('tags').innerHTML = '';  // judgment and motif would give the answer away
-  el('prompt').innerHTML =
-    `${puzzle.color === 'white' ? 'White' : 'Black'} to play — you chose ` +
-    `<span class="move">${puzzle.played_san}</span>. Find a better move.`;
-  const g = puzzle.game;
-  el('meta').innerHTML =
-    `<span>${g.speed} vs ${g.opponent}${g.opponent_rating ? ' (' + g.opponent_rating + ')' : ''}</span>` +
-    `<span>${fmtDate(g.played_at)}</span>` +
-    `<a href="${g.url}" target="_blank">view game &nearr;</a>`;
-  startedAt = Date.now();
+  const entry = {
+    puzzle: data.puzzle, firstTryDone: false, reveal: null, solvedUci: null,
+  };
+  // A new puzzle always lands at the end of the trail; anything ahead of the
+  // current position was reached under other circumstances and is dropped.
+  seen.length = Math.max(0, seenIdx + (replace ? 0 : 1));
+  seen.push(entry);
+  seenIdx = seen.length - 1;
+  showEntry(entry);
 }
 
 const RETURN_MS = 260;   // how long the rejected piece takes to glide back
@@ -225,6 +277,7 @@ async function submit(uci) {
     else { session.failed++; session.streak = 0; }
     renderSession();
   }
+  saveState();
 
   if (r.correct || uci === null) {
     reveal(r, r.correct ? uci : null);
@@ -274,6 +327,8 @@ function reveal(r, solvedUci) {
   solvedOrRevealed = true;
   el('giveup').disabled = true;
   lastBest = r.best_uci;
+  if (cur) { cur.reveal = r; cur.solvedUci = solvedUci; }
+  saveState();
   renderTags();
 
   const fb = el('feedback');
@@ -503,25 +558,47 @@ el('ex-reset').addEventListener('click', () => { if (puzzle) navTo(0, true); });
 
 /* ---------- controls ---------- */
 
+/* Forward through the trail if there is one — you got here with "Previous", so
+   the puzzle ahead is the one you left, not a new draw. Only past the end does
+   this ask for another puzzle. */
+function goNext() {
+  if (!pendingEmpty && seenIdx < seen.length - 1) { showEntry(seen[++seenIdx]); return; }
+  loadPuzzle();
+}
+
+function goPrev() {
+  // The empty state is not in the trail, so stepping back returns to the last
+  // puzzle actually shown rather than skipping over it.
+  if (pendingEmpty) { if (seen.length) showEntry(seen[seenIdx]); return; }
+  if (seenIdx > 0) showEntry(seen[--seenIdx]);
+}
+
 el('giveup').addEventListener('click', () => {
   if (puzzle && !solvedOrRevealed) submit(null);
 });
-el('next').addEventListener('click', loadPuzzle);
+el('next').addEventListener('click', goNext);
+el('prev').addEventListener('click', goPrev);
 el('discard').addEventListener('click', async () => {
   if (!puzzle) return;
   await api.postDiscard(puzzle.pid);
-  loadPuzzle();
+  seen.splice(seenIdx, 1);   // gone forever: it must not come back via Previous
+  if (seenIdx < seen.length) showEntry(seen[seenIdx]);
+  else { seenIdx = seen.length - 1; loadPuzzle(); }
 });
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.key.toLowerCase() === 'n') loadPuzzle();
+  if (e.key.toLowerCase() === 'n') goNext();
+  else if (e.key.toLowerCase() === 'p') goPrev();
   else if (e.key === 'ArrowLeft' && exploring) navTo(histIdx - 1);
   else if (e.key === 'ArrowRight' && exploring) navTo(histIdx + 1);
 });
 document.querySelectorAll('#filters input').forEach((i) =>
-  i.addEventListener('change', () => { if (!solvedOrRevealed && !exploring) loadPuzzle(); }));
+  i.addEventListener('change', () => {
+    if (!solvedOrRevealed && !exploring) loadPuzzle({ replace: true });
+  }));
 
 applyUrlFilters();
 renderFocusPill();
 renderSession();
+renderNav();
 loadPuzzle();
