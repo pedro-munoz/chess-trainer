@@ -104,6 +104,9 @@ Run everything from the project root with `./.venv/Scripts/python.exe`.
 
 ## Daily routine (Pedro plays daily)
 
+**`/sync` runs this whole pipeline** — `.claude/commands/sync.md` is the prompt,
+including the subagent brief for step 3. Keep the two in step.
+
 **Bringing in new games is one pipeline, and every step is mandatory:**
 
 ```
